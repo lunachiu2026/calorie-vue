@@ -1,0 +1,9 @@
+import { createApp } from 'vue'
+import App from './App.vue'
+import router from './router'
+import './assets/style.css'
+import './assets/sport.css'
+import './assets/goodhealth.css'
+import './assets/Nutritionist.css'
+
+createApp(App).use(router).mount('#app')

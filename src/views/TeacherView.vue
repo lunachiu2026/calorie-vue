@@ -1,125 +1,173 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+<script setup>
+import { RouterLink } from 'vue-router'
+import img1 from './teacher/11.jpg'
+import img2 from './teacher/22.jpg'
+import img3 from './teacher/33.jpg'
+import img4 from './teacher/44.jpg'
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業營養師一對一諮詢</title>
-    <!-- 建議先載入全站樣式，再載入頁面專屬樣式 -->
-    <link rel="stylesheet" href="../index/style.css">
-    <link rel="stylesheet" href="goodhealth.css">
-</head>
+const nutritionists = [
+  {
+    name: '李志宏',
+    title: '營養師',
+    price: '每堂 NT$ 1,500',
+    specialty: '專長：減重體態雕塑',
+    rating: '⭐ 4.9',
+    reviews: '(211 則真實學員好評)',
+    image: img1
+  },
+  {
+    name: '陳安妤',
+    title: '臨床營養師',
+    price: '每堂 NT$ 1,600',
+    specialty: '專長：三高飲食調理',
+    rating: '⭐ 4.8',
+    reviews: '(206 則真實學員好評)',
+    image: img2
+  },
+  {
+    name: '陳家明',
+    title: '營養師',
+    price: '每堂 NT$ 1,500',
+    specialty: '專長：運動營養學',
+    rating: '⭐ 4.9',
+    reviews: '(208 則真實學員好評)',
+    image: img3
+  },
+  {
+    name: '陳姿妤',
+    title: '臨床營養師',
+    price: '每堂 NT$ 1,600',
+    specialty: '專長：孕期母嬰營養',
+    rating: '⭐ 4.8',
+    reviews: '(228 則真實學員好評)',
+    image: img4
+  }
+]
+</script>
 
-<body>
-    <header class="navbar">
-        <div class="logo">
-            <a href="../index/index.html">
-                <img src="../index/logo.png" alt="卡路里 calorie">
-            </a>
-        </div>
-        <nav class="nav-links">
-            <a href="../index/index.html">首頁(熱量計算)</a>
-            <a href="../sport/sport.html" >運動空間</a>
-            <a href="./teacher.html" class="active">營養師介紹</a>
+<template>
+  <main class="booking-container teacher-page">
+    <section class="left-panel">
+      <h1 class="section-title">專業營養師一對一諮詢</h1>
+      <p class="subtitle">客製化飲食計畫，由權威臨床與運動營養師線上線下指導</p>
 
-        </nav>
-    </header>
+      <div class="teacher-grid">
+        <article v-for="nutritionist in nutritionists" :key="nutritionist.name" class="card">
+          <img
+            :src="nutritionist.image"
+            :alt="`${nutritionist.name} ${nutritionist.title}`"
+            class="teacher-avatar"
+          />
 
-    <!-- 💡 1. 這裡改成 booking-container，避免跟 index 的 container 衝突 -->
-    <div class="booking-container">
-        <!-- 左側：營養師列表 -->
-        <div class="left-panel">
-            <h2 class="section-title">🍊 專業營養師一對一諮詢</h2>
-            <p class="subtitle">客製化飲食計畫，由權威臨床與運動營養師線上線下指導</p>
-
-            <!-- 營養師 1 (已選取狀態) -->
-            <div class="card">
-               
-                <!-- 💡 2. 這裡改成 teacher-avatar，避免被全站導覽列頭貼縮小 -->
-                <img src="11.jpg" alt="陳冠宇 營養師" class="teacher-avatar">
-                <div class="card-info">
-                    <div class="card-header">
-                        <h3>李志宏 <span class="title-tag">營養師</span></h3>
-                        <span class="price">每堂 NT$ 1,500</span>
-                    </div>
-                    <p class="specialty">專長：減重體態雕塑</p>
-                    <div class="rating">⭐ 4.9 <span class="reviews">(211 則真實學員好評)</span></div>
-                    <div class="tags">
-                        <span class="tag green">可視訊諮詢</span>
-                        <span class="tag green">送一週菜單</span>
-                    </div>
-                    <a href="./submit.html" class="submit-btn">確認並線上預約</a>
-                    <!-- 修改後：改成 a 標籤，並在 href 放您的登入網址 -->
-                    
-                    
-
-                </div>
+          <div class="card-info">
+            <div class="card-header">
+              <h2>
+                {{ nutritionist.name }}
+                <span class="title-tag">{{ nutritionist.title }}</span>
+              </h2>
+              <span class="price">{{ nutritionist.price }}</span>
             </div>
 
-            <!-- 營養師 2 -->
-            <div class="card">
-                <!-- 💡 3. 這裡也改成 teacher-avatar -->
-                <img src="22.jpg" alt="林佳蓉 臨床營養師" class="teacher-avatar">
-                <div class="card-info">
-                    <div class="card-header">
-                        <h3>陳安妤 <span class="title-tag">臨床營養師</span></h3>
-                        <span class="price gray">每堂 NT$ 1,600</span>
-                    </div>
-                    <p class="specialty">專長：三高飲食調理</p>
-                    <div class="rating">⭐ 4.8 <span class="reviews">(206 則真實學員好評)</span></div>
-                    <div class="tags">
-                        <span class="tag green">可視訊諮詢</span>
-                        <span class="tag green">送一週菜單</span>
-                    </div>
-                    <!-- 提交按鈕 -->
-                    <a href="./submit.html" class="submit-btn">確認並線上預約</a>
-                </div>
-            </div>
-            <!-- 營養師3(已選取狀態) -->
-            <div class="card">
-                <!-- 💡 2. 這裡改成 teacher-avatar，避免被全站導覽列頭貼縮小 -->
-                <img src="33.jpg" alt="陳冠宇 營養師" class="teacher-avatar">
-                <div class="card-info">
-                    <div class="card-header">
-                        <h3>陳家明 <span class="title-tag">營養師</span></h3>
-                        <span class="price">每堂 NT$ 1,500</span>
-                    </div>
-                    <p class="specialty">專長：運動營養學</p>
-                    <div class="rating">⭐ 4.9 <span class="reviews">(208 則真實學員好評)</span></div>
-                    <div class="tags">
-                        <span class="tag green">可視訊諮詢</span>
-                        <span class="tag green">送一週菜單</span>
-                    </div>
-                    <!-- 提交按鈕 -->
-                    <a href="./submit.html" class="submit-btn">確認並線上預約</a>
-                </div>
+            <p class="specialty">{{ nutritionist.specialty }}</p>
+            <div class="rating">
+              {{ nutritionist.rating }}
+              <span class="reviews">{{ nutritionist.reviews }}</span>
             </div>
 
-            <!-- 營養師4 -->
-            <div class="card">
-                <!-- 💡 3. 這裡也改成 teacher-avatar -->
-                <img src="44.jpg" alt="林佳蓉 臨床營養師" class="teacher-avatar">
-                <div class="card-info">
-                    <div class="card-header">
-                        <h3>陳姿妤 <span class="title-tag">臨床營養師</span></h3>
-                        <span class="price gray">每堂 NT$ 1,600</span>
-                    </div>
-                    <p class="specialty">專長：孕期母嬰營養</p>
-                    <div class="rating">⭐ 4.8 <span class="reviews">(228 則真實學員好評)</span></div>
-                    <div class="tags">
-                        <span class="tag green">可視訊諮詢</span>
-                        <span class="tag green">送一週菜單</span>
-                    </div>
-                    <!-- 提交按鈕 -->
-                   <a href="./submit.html" class="submit-btn">確認並線上預約</a>
-                </div>
+            <div class="tags">
+              <span class="tag green">可視訊諮詢</span>
+              <span class="tag green">送一週菜單</span>
             </div>
-        </div>
 
-    </div>
-    </div>
+            <RouterLink
+              :to="{ name: 'teacher-booking', query: { teacher: nutritionist.name } }"
+              class="submit-btn"
+            >
+              確認並線上預約
+            </RouterLink>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</template>
 
+<style scoped>
+.teacher-page {
+  width: min(1100px, 92%);
+  margin: 0 auto;
+  padding-top: 42px;
+  padding-bottom: 64px;
+}
 
-</body>
+.teacher-page .left-panel {
+  width: 100%;
+}
 
-</html>
+.teacher-page .section-title {
+  margin: 0 0 8px;
+  font-size: clamp(27px, 4vw, 38px);
+  text-align: center;
+}
+
+.teacher-page .subtitle {
+  margin: 0 0 30px;
+  text-align: center;
+}
+
+.teacher-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.teacher-page .card {
+  height: 100%;
+  margin: 0;
+}
+
+.teacher-page .teacher-avatar {
+  flex: 0 0 150px;
+  width: 150px;
+  height: 180px;
+  object-fit: cover;
+}
+
+.teacher-page .card-header h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.teacher-page .submit-btn {
+  margin-top: 18px;
+  background: #AAC0AF;
+}
+
+.teacher-page .submit-btn:hover {
+  background: #FAAC9A;
+}
+
+@media (max-width: 900px) {
+  .teacher-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .teacher-page .card {
+    align-items: center;
+    flex-direction: column;
+  }
+
+  .teacher-page .teacher-avatar {
+    width: 100%;
+    height: 260px;
+  }
+
+  .teacher-page .card-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+</style>

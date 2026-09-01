@@ -80,8 +80,8 @@ button:disabled {
 
 .nav-links a:hover,
 .nav-links a.active {
-    color: var(--green-dark);
-    background: var(--green-light);
+    color: #FAAC9A;
+    background: transparent;
 }
 
 .user-status {

@@ -167,8 +167,8 @@ body {
 }
 
 .tab-btn.active {
-    color: #27ae60;
-    border-bottom: 3px solid #27ae60; /* 加粗選中底線 */
+    color: #FAAC9A;
+    border-bottom: 3px solid #FAAC9A; /* 加粗選中底線 */
     font-weight: bold;
 }
 
@@ -199,9 +199,9 @@ body {
 
 .form-control:focus {
     outline: none;
-    border-color: #27ae60;
+    border-color: #FAAC9A;
     background-color: #fff;
-    box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1); /* 新增聚焦外顯光暈 */
+    box-shadow: none;
 }
 
 .forgot-pwd {
@@ -236,7 +236,7 @@ body {
 .submit-btn {
     width: 100%;
     padding: 16px;          /* 💡 按鈕高度由 14px 增高到 16px */
-    background-color: #27ae60;
+    background-color: #AAC0AF;
     color: #fff;
     border: none;
     border-radius: 8px;     
@@ -247,7 +247,7 @@ body {
 }
 
 .submit-btn:hover {
-    background-color: #219653;
+    background-color: #FAAC9A;
 }
 .submit-btn:active {
     transform: scale(0.99); /* 按下時的微回饋 */

@@ -147,7 +147,7 @@ const submit = () => {
   min-height: 46px;
   border: none;
   border-radius: 10px;
-  background: #2e9e5b;
+  background: #AAC0AF;
   color: #fff;
   font-size: 16px;
   font-weight: 700;
@@ -156,6 +156,6 @@ const submit = () => {
 }
 
 .btn-submit:hover {
-  background: #27894f;
+  background: #FAAC9A;
 }
 </style>

@@ -5,7 +5,7 @@ import { useAuth } from '../auth.js'
 
 const menuOpen = ref(false)
 const closeMenu = () => { menuOpen.value = false }
-const { isLoggedIn, currentUser, logout } = useAuth()
+const { isLoggedIn, logout } = useAuth()
 const router = useRouter()
 
 const handleLogout = () => {
@@ -31,16 +31,12 @@ const handleLogout = () => {
       <RouterLink to="/sport" active-class="active" @click="closeMenu">運動場所</RouterLink>
       <RouterLink to="/teacher" active-class="active" @click="closeMenu">預約營養師</RouterLink>
       <RouterLink to="/records" active-class="active" @click="closeMenu">會員中心</RouterLink>
-      <button v-if="isLoggedIn" class="mobile-logout" type="button" @click="handleLogout">登出</button>
-      <RouterLink v-else class="mobile-login" to="/login" @click="closeMenu">登入</RouterLink>
     </nav>
 
     <div class="nav-actions">
       <span class="daily-goal">今日目標：2,000 kcal</span>
-      <RouterLink v-if="!isLoggedIn" class="user-avatar" to="/login" aria-label="登入">👤</RouterLink>
-      <button v-else class="user-avatar logged-in" type="button" :title="`${currentUser}，點擊登出`" @click="handleLogout">
-        {{ currentUser.slice(0, 1).toUpperCase() }}
-      </button>
+      <RouterLink v-if="!isLoggedIn" class="auth-button" to="/login">登入 / 註冊</RouterLink>
+      <button v-else class="logout-button" type="button" @click="handleLogout">登出</button>
     </div>
   </header>
 </template>
@@ -48,7 +44,7 @@ const handleLogout = () => {
 <style scoped>
 .navbar {
   position: sticky; z-index: 50; top: 0; display: grid;
-  grid-template-columns: 220px 1fr 220px; align-items: center;
+  grid-template-columns: 220px 1fr 280px; align-items: center;
   min-height: 78px; padding: 0 max(5%, calc((100% - 1280px) / 2));
   background: rgba(255,255,255,.96); border-bottom: 1px solid #e7ece9;
   box-shadow: 0 3px 14px rgba(31,55,40,.03); backdrop-filter: blur(10px);
@@ -58,20 +54,20 @@ const handleLogout = () => {
 .nav-links { display: flex; align-items: stretch; justify-content: center; gap: 34px; min-height: 78px; }
 .nav-links a { position: relative; display: grid; color: #657169; text-decoration: none; font-weight: 600; place-items: center; white-space: nowrap; }
 .nav-links a::after { position: absolute; right: 28%; bottom: 0; left: 28%; height: 3px; content: ''; background: transparent; border-radius: 3px 3px 0 0; }
-.nav-links a:hover, .nav-links a.active { color: #31bb70; }
-.nav-links a.active::after { background: #37c77a; }
+.nav-links a:hover, .nav-links a.active { color: #FAAC9A; background: transparent !important; box-shadow: none !important; }
+.nav-links a:focus { outline: none; background: transparent !important; box-shadow: none !important; }
+.nav-links a.active::after { background: #FAAC9A; }
 .nav-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
 .daily-goal { padding: 8px 14px; color: #28b76b; background: #ebf9f2; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
-.user-avatar { display: grid; width: 38px; height: 38px; color: #34443a; background: #edf2ef; border: 3px solid #e3e8e5; border-radius: 50%; text-decoration: none; place-items: center; }
-.user-avatar.logged-in { color: #fff; background: #37c77a; border: 0; font-weight: 800; cursor: pointer; }
+.auth-button, .logout-button { display: inline-flex; min-height: 38px; padding: 0 15px; align-items: center; justify-content: center; color: #fff; background: #AAC0AF; border: 0; border-radius: 9px; font-size: 13px; font-weight: 700; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.auth-button:hover, .logout-button:hover { color: #fff; background: #FAAC9A; }
 .hamburger { display: none; width: 40px; height: 40px; padding: 8px; background: transparent; border: 0; cursor: pointer; }
 .hamburger span { display: block; width: 24px; height: 3px; margin: 4px 0; background: #34443a; border-radius: 3px; transition: .2s; }
 .hamburger.active span:first-child { transform: translateY(7px) rotate(45deg); }
 .hamburger.active span:nth-child(2) { opacity: 0; }
 .hamburger.active span:last-child { transform: translateY(-7px) rotate(-45deg); }
-.mobile-login, .mobile-logout { display: none !important; }
 @media (max-width: 1050px) {
-  .navbar { grid-template-columns: 190px 1fr 190px; padding: 0 3%; }
+  .navbar { grid-template-columns: 180px 1fr 235px; padding: 0 3%; }
   .nav-links { gap: 17px; }
   .brand img { width: 155px; }
   .daily-goal { font-size: 12px; }
@@ -85,8 +81,7 @@ const handleLogout = () => {
   .nav-links.open { transform: translateX(0); }
   .nav-links a { display: flex; min-height: 49px; padding: 0 12px; border-radius: 9px; }
   .nav-links a::after { display: none; }
-  .nav-links a.active { background: #ebf9f2; }
-  .mobile-login, .mobile-logout { display: flex !important; min-height: 49px; padding: 0 12px; align-items: center; color: #657169; background: transparent; border: 0; font-weight: 600; }
-  .nav-actions .user-avatar { display: none; }
+  .nav-links a.active { color: #FAAC9A; background: transparent !important; }
+  .auth-button, .logout-button { min-height: 34px; padding: 0 11px; font-size: 12px; }
 }
 </style>

@@ -82,10 +82,14 @@ const data = computed(() => locationData[props.category] || null)
 
 .btn-map-link {
   align-self: flex-start;
-  background: #2e9e5b;
+  background: #AAC0AF;
   color: #fff;
   text-decoration: none;
   padding: 8px 14px;
   border-radius: 8px;
+}
+
+.btn-map-link:hover {
+  background: #FAAC9A;
 }
 </style>

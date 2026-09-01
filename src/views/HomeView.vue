@@ -5,6 +5,7 @@ import mealPhoto from '../assets/healthy-meals.png'
 
 const STORAGE_KEY = 'calorie-meals'
 const CALORIE_TARGET = 2000
+const RESTAURANT_URL = 'https://theproteinbox.com.tw/'
 const mealTypes = ['早餐', '午餐', '晚餐']
 const foodDatabase = ref(foods)
 const searchQuery = ref('')
@@ -64,10 +65,6 @@ const addFood = (food, weight, mealType) => {
 }
 
 const addCurrentFood = () => addFood(currentSelectedFood.value, inputWeight.value, activeMeal.value)
-const addRecommendation = item => {
-  const food = foodDatabase.value.find(foodItem => foodItem.name === item.name)
-  addFood(food, item.weight, activeMeal.value)
-}
 const removeFoodFromMeal = (mealType, index) => meals.value[mealType].splice(index, 1)
 
 const getMealSummary = mealType => meals.value[mealType].reduce(
@@ -94,6 +91,16 @@ const totalMacros = computed(() => mealTypes.reduce((total, mealType) => {
   return total
 }, { protein: 0, carbs: 0, fat: 0 }))
 const calorieProgress = computed(() => Math.min(100, Math.round((totalMealCalories.value / CALORIE_TARGET) * 100)))
+const calorieStatus = computed(() => {
+  const difference = totalMealCalories.value - CALORIE_TARGET
+  if (difference > 0) {
+    return { type: 'over', text: `⚠️ 今日已超出熱量 ${difference.toLocaleString()} kcal` }
+  }
+  if (difference === 0) {
+    return { type: 'reached', text: '🎉 恭喜！今日熱量目標已達成' }
+  }
+  return { type: 'deficit', text: `目前熱量赤字 ${Math.abs(difference).toLocaleString()} kcal` }
+})
 const ringStyle = computed(() => ({
   background: `conic-gradient(#37c77a ${calorieProgress.value * 3.6}deg, #edf2ef 0deg)`
 }))
@@ -183,6 +190,7 @@ onMounted(() => {
               <span>目標：{{ CALORIE_TARGET.toLocaleString() }} kcal</span>
             </div>
           </div>
+          <p class="calorie-status" :class="calorieStatus.type">{{ calorieStatus.text }}</p>
           <div class="macro-stats">
             <div><span>蛋白質</span><strong>{{ Math.round(totalMacros.protein) }}g</strong><i><b :style="{ width: macroWidth(totalMacros.protein, 100) }"></b></i></div>
             <div><span>碳水化合物</span><strong>{{ Math.round(totalMacros.carbs) }}g</strong><i><b :style="{ width: macroWidth(totalMacros.carbs, 250) }"></b></i></div>
@@ -196,7 +204,7 @@ onMounted(() => {
       <div class="recommendation-area">
         <div class="section-heading">
           <h2>🥗 本週推薦健康餐計畫</h2>
-          <span>點擊購物車即可加入「{{ activeMeal }}」</span>
+          <span>點擊「加入購物車」前往健康餐廳官網</span>
         </div>
         <div class="recommendation-grid">
           <article v-for="item in recommendations" :key="item.name" class="food-card">
@@ -207,7 +215,9 @@ onMounted(() => {
             </div>
             <div class="food-card-footer">
               <strong>{{ item.weight }}g</strong>
-              <button type="button" :aria-label="`加入${item.title}`" @click="addRecommendation(item)">🛒</button>
+              <a :href="RESTAURANT_URL" target="_blank" rel="noopener noreferrer" :aria-label="`前往餐廳選購${item.title}`">
+                加入購物車
+              </a>
             </div>
           </article>
         </div>
@@ -259,18 +269,18 @@ onMounted(() => {
 .calculator-card h2 { margin: 0 0 14px; font-size: 16px; }
 .calculator-row { display: grid; grid-template-columns: minmax(220px,1fr) 112px 105px 126px; gap: 10px; }
 .calculator-row input, .calculator-row select { width: 100%; height: 47px; padding: 0 13px; color: #2e3732; background: #fff; border: 1px solid #dce4df; border-radius: 9px; outline: none; }
-.calculator-row input:focus, .calculator-row select:focus { border-color: #37c77a; box-shadow: 0 0 0 3px rgba(55,199,122,.12); }
+.calculator-row input:focus, .calculator-row select:focus { border-color: #FAAC9A; box-shadow: none; }
 .food-search { position: relative; }
 .search-results { position: absolute; z-index: 20; top: 52px; right: 0; left: 0; overflow: hidden auto; max-height: 270px; background: #fff; border: 1px solid #dce4df; border-radius: 10px; box-shadow: 0 14px 35px rgba(38,64,49,.16); }
 .search-results button { display: flex; justify-content: space-between; width: 100%; padding: 11px 13px; color: #2e3732; background: #fff; border: 0; border-bottom: 1px solid #eef2ef; cursor: pointer; }
-.search-results button:hover { color: #1ca95f; background: #effaf4; }
+.search-results button:hover { color: #8b5144; background: #fff0ec; }
 .search-results small, .search-results p { color: #8b9790; }
 .search-results p { padding: 12px; margin: 0; }
 .weight-field { position: relative; }
 .weight-field input { padding-right: 42px; }
 .weight-field span { position: absolute; top: 14px; right: 11px; color: #8c9690; font-size: 13px; }
-.calculate-button, .save-button { color: #fff; background: #37c77a; border: 0; border-radius: 9px; font-weight: 700; cursor: pointer; }
-.calculate-button:hover:not(:disabled), .save-button:hover:not(:disabled) { background: #25b469; transform: translateY(-1px); }
+.calculate-button, .save-button { color: #fff; background: #AAC0AF; border: 0; border-radius: 9px; font-weight: 700; cursor: pointer; }
+.calculate-button:hover:not(:disabled), .save-button:hover:not(:disabled) { background: #FAAC9A; transform: translateY(-1px); }
 .preview-row { display: flex; flex-wrap: wrap; gap: 25px; margin-top: 18px; color: #727d76; font-size: 14px; }
 .preview-row strong { color: #2bc171; font-size: 20px; }
 .preview-row b { color: #2c342f; }
@@ -280,6 +290,10 @@ onMounted(() => {
 .ring-center { display: grid; width: 145px; height: 145px; background: #fff; border-radius: 50%; place-content: center; text-align: center; }
 .ring-center strong { font-size: 32px; line-height: 1.1; }
 .ring-center span { margin-top: 5px; color: #7e8983; font-size: 12px; }
+.calorie-status { margin: -8px 0 22px; padding: 9px 12px; border-radius: 9px; text-align: center; font-size: 13px; font-weight: 700; }
+.calorie-status.deficit { color: #657a6b; background: #eef3ef; }
+.calorie-status.reached { color: #79553f; background: #fff0ec; }
+.calorie-status.over { color: #c43d3d; background: #fff0f0; }
 .macro-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
 .macro-stats > div { display: grid; gap: 5px; text-align: center; }
 .macro-stats span { color: #7b857f; font-size: 12px; }
@@ -305,8 +319,8 @@ onMounted(() => {
 .food-card p { margin: 0; color: #768078; font-size: 13px; line-height: 1.45; }
 .food-card-footer { display: flex; align-items: center; justify-content: space-between; padding: 14px 19px; border-top: 1px solid #edf1ee; }
 .food-card-footer strong { font-size: 17px; }
-.food-card-footer button { display: grid; width: 35px; height: 35px; color: #fff; background: #37c77a; border: 0; border-radius: 9px; cursor: pointer; place-items: center; }
-.food-card-footer button:hover { transform: scale(1.06); }
+.food-card-footer a { display: inline-flex; min-height: 35px; padding: 0 14px; align-items: center; justify-content: center; color: #fff; background: #AAC0AF; border-radius: 9px; font-size: 13px; font-weight: 700; text-decoration: none; }
+.food-card-footer a:hover { background: #FAAC9A; transform: translateY(-1px); }
 .selection-panel { min-height: 430px; padding: 23px; background: #fff; border: 1px solid #e0e7e2; border-radius: 20px; }
 .selection-title { display: flex; align-items: center; justify-content: space-between; }
 .selection-title h2 { margin: 0; font-size: 18px; }

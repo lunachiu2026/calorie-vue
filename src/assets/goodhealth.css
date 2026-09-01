@@ -282,7 +282,7 @@ body {
 
 /* 啟用中的日期樣式 */
 .day-col.active button {
-    background-color: #AAC0AF;
+    background-color: #FAAC9A;
     color: #fff;
 }
 
@@ -305,9 +305,9 @@ body {
 }
 
 .time-btn.active {
-    border: 1px solid #AAC0AF;
-    background-color: #ebfaef;
-    color: #AAC0AF;
+    border: 1px solid #FAAC9A;
+    background-color: #fff0ec;
+    color: #d37c68;
     font-weight: bold;
 }
 

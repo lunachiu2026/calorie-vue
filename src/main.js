@@ -5,5 +5,6 @@ import './assets/style.css'
 import './assets/sport.css'
 import './assets/goodhealth.css'
 import './assets/Nutritionist.css'
+import 'bootstrap-icons/font/bootstrap-icons.css'
 
 createApp(App).use(router).mount('#app')

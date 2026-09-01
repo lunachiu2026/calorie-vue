@@ -5,7 +5,7 @@ import { useAuth } from '../auth.js'
 
 const menuOpen = ref(false)
 const closeMenu = () => { menuOpen.value = false }
-const { isLoggedIn, logout } = useAuth()
+const { isLoggedIn, dailyCalorieTarget, logout } = useAuth()
 const router = useRouter()
 
 const handleLogout = () => {
@@ -34,7 +34,7 @@ const handleLogout = () => {
     </nav>
 
     <div class="nav-actions">
-      <span class="daily-goal">今日目標：2,000 kcal</span>
+      <span class="daily-goal">今日目標：{{ Number(dailyCalorieTarget).toLocaleString() }} kcal</span>
       <RouterLink v-if="!isLoggedIn" class="auth-button" to="/login">登入 / 註冊</RouterLink>
       <button v-else class="logout-button" type="button" @click="handleLogout">登出</button>
     </div>

@@ -5,6 +5,7 @@ import SportDetailView from '../views/SportDetailView.vue'
 import TeacherView from '../views/TeacherView.vue'
 import BookingView from '../views/BookingView.vue'
 import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
 import RecordsView from '../views/RecordsView.vue'
 import { useAuth } from '../auth.js'
 
@@ -20,6 +21,7 @@ const routes = [
   { path: '/teacher', name: 'teacher', component: TeacherView },
   { path: '/teacher/booking', name: 'teacher-booking', component: BookingView },
   { path: '/login', name: 'login', component: LoginView },
+  { path: '/register', name: 'register', component: RegisterView },
   {
     path: '/records',
     name: 'records',

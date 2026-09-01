@@ -1,11 +1,16 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuth } from '../auth.js'
 import foods from '../data/foods.json'
 import mealPhoto from '../assets/healthy-meals.png'
 
 const STORAGE_KEY = 'calorie-meals'
-const CALORIE_TARGET = 2000
+const DEFAULT_CALORIE_TARGET = 2000
 const RESTAURANT_URL = 'https://theproteinbox.com.tw/'
+const router = useRouter()
+const { isLoggedIn, dailyCalorieTarget } = useAuth()
+const calorieTarget = computed(() => Number(dailyCalorieTarget.value) || DEFAULT_CALORIE_TARGET)
 const mealTypes = ['早餐', '午餐', '晚餐']
 const foodDatabase = ref(foods)
 const searchQuery = ref('')
@@ -15,6 +20,11 @@ const inputWeight = ref(100)
 const activeMeal = ref('午餐')
 const dropdownOpen = ref(false)
 const mealDropdownOpen = ref(false)
+const calculatorCard = ref(null)
+const showClearConfirm = ref(false)
+const showSaveSuccess = ref(false)
+const selectionDatePicker = ref(null)
+const mealDateCalendarOpen = ref(false)
 const meals = ref({ 早餐: [], 午餐: [], 晚餐: [] })
 
 const recommendations = [
@@ -22,6 +32,46 @@ const recommendations = [
   { name: '鮭魚', title: '煙燻鮭魚藜麥溫沙拉', description: '鮭魚好油脂搭配藜麥，營養均衡有飽足感。', weight: 180, position: 'center' },
   { name: '牛排(沙朗)', title: '厚切嫩煎牛肉高纖燕麥碗', description: '豐富蛋白質搭配蔬菜，適合運動後補充。', weight: 180, position: 'right' }
 ]
+
+const today = new Date()
+const todayDateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+const mealDate = ref(todayDateKey)
+const mealDateCalendarMonth = ref(todayDateKey.slice(0, 7))
+const mealDateLabel = computed(() => mealDate.value.replaceAll('-', '/'))
+const mealDateCalendarTitle = computed(() => {
+  const [year, month] = mealDateCalendarMonth.value.split('-').map(Number)
+  return `${year} 年 ${month} 月`
+})
+const mealDateCalendarDays = computed(() => {
+  const [year, month] = mealDateCalendarMonth.value.split('-').map(Number)
+  const firstWeekday = new Date(year, month - 1, 1).getDay()
+  const dayCount = new Date(year, month, 0).getDate()
+  const days = Array.from({ length: firstWeekday }, (_, index) => ({ key: `empty-${index}`, empty: true }))
+  for (let day = 1; day <= dayCount; day += 1) {
+    const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    days.push({ key, day, disabled: key > todayDateKey })
+  }
+  return days
+})
+
+const toggleMealDateCalendar = () => {
+  mealDateCalendarMonth.value = mealDate.value.slice(0, 7)
+  mealDateCalendarOpen.value = !mealDateCalendarOpen.value
+}
+
+const changeMealDateCalendarMonth = offset => {
+  const [year, month] = mealDateCalendarMonth.value.split('-').map(Number)
+  const nextMonth = new Date(year, month - 1 + offset, 1)
+  const nextMonthKey = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`
+  if (nextMonthKey > todayDateKey.slice(0, 7)) return
+  mealDateCalendarMonth.value = nextMonthKey
+}
+
+const selectMealDate = day => {
+  if (day.disabled) return
+  mealDate.value = day.key
+  mealDateCalendarOpen.value = false
+}
 
 const foodCategories = computed(() => ['全部', ...new Set(foodDatabase.value.map(food => food.category))])
 const categoryIcons = {
@@ -74,6 +124,27 @@ const selectCategory = category => {
   dropdownOpen.value = true
 }
 
+const toggleSearchDropdown = () => {
+  dropdownOpen.value = !dropdownOpen.value
+  if (dropdownOpen.value) mealDropdownOpen.value = false
+}
+
+const handleSearchInput = () => {
+  selectedFoodName.value = ''
+  dropdownOpen.value = true
+  mealDropdownOpen.value = false
+}
+
+const closeDropdowns = () => {
+  dropdownOpen.value = false
+  mealDropdownOpen.value = false
+}
+
+const handleOutsideClick = event => {
+  if (!calculatorCard.value?.contains(event.target)) closeDropdowns()
+  if (!selectionDatePicker.value?.contains(event.target)) mealDateCalendarOpen.value = false
+}
+
 const toggleMealDropdown = () => {
   mealDropdownOpen.value = !mealDropdownOpen.value
   if (mealDropdownOpen.value) dropdownOpen.value = false
@@ -123,9 +194,9 @@ const totalMacros = computed(() => mealTypes.reduce((total, mealType) => {
   total.fat += summary.fat
   return total
 }, { protein: 0, carbs: 0, fat: 0 }))
-const calorieProgress = computed(() => Math.min(100, Math.round((totalMealCalories.value / CALORIE_TARGET) * 100)))
+const calorieProgress = computed(() => Math.min(100, Math.round((totalMealCalories.value / calorieTarget.value) * 100)))
 const calorieStatus = computed(() => {
-  const difference = totalMealCalories.value - CALORIE_TARGET
+  const difference = totalMealCalories.value - calorieTarget.value
   if (difference > 0) {
     return { type: 'over', text: `⚠️ 今日已超出熱量 ${difference.toLocaleString()} kcal` }
   }
@@ -135,7 +206,7 @@ const calorieStatus = computed(() => {
   return { type: 'deficit', text: `目前熱量赤字 ${Math.abs(difference).toLocaleString()} kcal` }
 })
 const ringStyle = computed(() => ({
-  background: `conic-gradient(#37c77a ${calorieProgress.value * 3.6}deg, #edf2ef 0deg)`
+  background: `conic-gradient(${totalMealCalories.value > calorieTarget.value ? '#ef4444' : '#37c77a'} ${calorieProgress.value * 3.6}deg, #edf2ef 0deg)`
 }))
 const macroWidth = (value, target) => `${Math.min(100, Math.round((value / target) * 100))}%`
 const recommendationNutrition = item => {
@@ -144,21 +215,32 @@ const recommendationNutrition = item => {
 }
 
 const clearAllMeals = () => {
-  if (window.confirm('確定要清空今天的飲食清單嗎？')) {
-    meals.value = { 早餐: [], 午餐: [], 晚餐: [] }
-    localStorage.removeItem(STORAGE_KEY)
-  }
+  showClearConfirm.value = true
+}
+
+const confirmClearAllMeals = () => {
+  meals.value = { 早餐: [], 午餐: [], 晚餐: [] }
+  localStorage.removeItem(STORAGE_KEY)
+  showClearConfirm.value = false
 }
 
 const saveMeals = () => {
+  if (!isLoggedIn.value) {
+    router.push({ path: '/login', query: { redirect: '/' } })
+    return
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(meals.value))
   const records = JSON.parse(localStorage.getItem('calorie-records') || '[]')
-  records.unshift({ id: Date.now(), savedAt: new Date().toISOString(), meals: JSON.parse(JSON.stringify(meals.value)) })
+  const [year, month, day] = mealDate.value.split('-').map(Number)
+  const now = new Date()
+  const selectedDateTime = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds())
+  records.unshift({ id: Date.now(), savedAt: selectedDateTime.toISOString(), meals: JSON.parse(JSON.stringify(meals.value)) })
   localStorage.setItem('calorie-records', JSON.stringify(records))
-  window.alert('今日飲食紀錄已儲存！')
+  showSaveSuccess.value = true
 }
 
 onMounted(() => {
+  document.addEventListener('click', handleOutsideClick)
   const saved = localStorage.getItem(STORAGE_KEY)
   if (!saved) return
   try {
@@ -172,6 +254,8 @@ onMounted(() => {
     console.error('讀取儲存紀錄失敗', error)
   }
 })
+
+onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 </script>
 
 <template>
@@ -183,12 +267,12 @@ onMounted(() => {
           <h1>吃得聰明，<em>卡路里</em>幫您精準計算</h1>
           <p>輸入您今天享用的食物，讓 AI 技術幫您快速掌握熱量與營養素組成。</p>
 
-          <div class="calculator-card">
+          <div ref="calculatorCard" class="calculator-card" @keydown.esc="closeDropdowns">
             <h2><i class="bi bi-search" aria-hidden="true"></i>快速估算食物熱量</h2>
             <div class="calculator-row">
               <div class="food-search">
                 <input v-model="searchQuery" type="text" placeholder="輸入食物名稱，例如：鮭魚"
-                  @focus="dropdownOpen = true; mealDropdownOpen = false" @input="selectedFoodName = ''" @keyup.enter="addCurrentFood" />
+                  @click="toggleSearchDropdown" @input="handleSearchInput" @keyup.enter="addCurrentFood" />
                 <Transition name="search-dropdown">
                   <div v-if="dropdownOpen" class="search-results">
                     <button v-for="food in filteredFoods" :key="food.name" type="button" @click="selectSearchResult(food)">
@@ -240,7 +324,7 @@ onMounted(() => {
           <div class="progress-ring" :style="ringStyle">
             <div class="ring-center">
               <strong>{{ totalMealCalories.toLocaleString() }}</strong>
-              <span>目標：{{ CALORIE_TARGET.toLocaleString() }} kcal</span>
+              <span>目標：{{ calorieTarget.toLocaleString() }} kcal</span>
             </div>
           </div>
           <p class="calorie-status" :class="calorieStatus.type">{{ calorieStatus.text }}</p>
@@ -278,6 +362,26 @@ onMounted(() => {
 
       <aside class="selection-panel">
         <div class="selection-title"><h2><i class="bi bi-cart3" aria-hidden="true"></i>已選飲食清單</h2><span>{{ selectedItems.length }}</span></div>
+        <div ref="selectionDatePicker" class="selection-date">
+          <span><i class="bi bi-calendar3" aria-hidden="true"></i>紀錄日期</span>
+          <button type="button" class="meal-date-trigger" :aria-expanded="mealDateCalendarOpen" @click="toggleMealDateCalendar">
+            <span>{{ mealDateLabel }}</span><i class="bi bi-chevron-down" aria-hidden="true"></i>
+          </button>
+          <div v-if="mealDateCalendarOpen" class="meal-date-calendar">
+            <div class="meal-calendar-head">
+              <button type="button" aria-label="上個月" @click="changeMealDateCalendarMonth(-1)"><i class="bi bi-chevron-left"></i></button>
+              <strong>{{ mealDateCalendarTitle }}</strong>
+              <button type="button" aria-label="下個月" :disabled="mealDateCalendarMonth >= todayDateKey.slice(0, 7)" @click="changeMealDateCalendarMonth(1)"><i class="bi bi-chevron-right"></i></button>
+            </div>
+            <div class="meal-calendar-weekdays"><span v-for="weekday in ['日','一','二','三','四','五','六']" :key="weekday">{{ weekday }}</span></div>
+            <div class="meal-calendar-grid">
+              <template v-for="day in mealDateCalendarDays" :key="day.key">
+                <span v-if="day.empty" class="meal-calendar-empty"></span>
+                <button v-else type="button" :disabled="day.disabled" :class="{ selected: day.key === mealDate }" @click="selectMealDate(day)">{{ day.day }}</button>
+              </template>
+            </div>
+          </div>
+        </div>
         <div v-if="selectedItems.length === 0" class="empty-selection">
           <i class="bi bi-basket2 empty-icon" aria-hidden="true"></i><p>尚未加入食物<br />從上方搜尋或推薦餐點開始吧！</p>
         </div>
@@ -295,7 +399,7 @@ onMounted(() => {
               <li v-for="(item, index) in meals[mealType]" :key="`${mealType}-${index}-${item.name}`">
                 <div><strong>{{ item.name }}</strong><small>{{ item.weight_g }}g</small></div>
                 <span>{{ item.calories }} kcal</span>
-                <button type="button" :aria-label="`從${mealType}刪除${item.name}`" @click="removeFoodFromMeal(mealType, index)">×</button>
+                <button type="button" :aria-label="`從${mealType}刪除${item.name}`" @click="removeFoodFromMeal(mealType, index)"><i class="bi bi-trash3" aria-hidden="true"></i></button>
               </li>
             </ul>
           </article>
@@ -306,17 +410,44 @@ onMounted(() => {
           </div>
           <div class="summary-total"><strong>今日總計</strong><strong>{{ totalMealCalories }} kcal</strong></div>
         </div>
-        <button class="save-button" type="button" :disabled="selectedItems.length === 0" @click="saveMeals">儲存今日飲食紀錄</button>
+        <button class="save-button" type="button" :disabled="selectedItems.length === 0 || !mealDate" @click="saveMeals">儲存今日飲食紀錄</button>
         <button v-if="selectedItems.length" class="clear-button" type="button" @click="clearAllMeals">清空清單</button>
       </aside>
     </section>
+
+    <Teleport to="body">
+      <div v-if="showClearConfirm" class="clear-confirm-overlay" @click.self="showClearConfirm = false" @keydown.esc="showClearConfirm = false">
+        <section class="clear-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="meal-clear-title" aria-describedby="meal-clear-description" tabindex="-1">
+          <div class="clear-confirm-icon"><i class="bi bi-trash3" aria-hidden="true"></i></div>
+          <h3 id="meal-clear-title">清空今日飲食清單？</h3>
+          <p id="meal-clear-description">清空後將無法復原<br />確定要移除今天加入的所有餐點嗎？</p>
+          <div class="clear-confirm-actions">
+            <button type="button" class="clear-cancel" @click="showClearConfirm = false">取消</button>
+            <button type="button" class="clear-confirm" @click="confirmClearAllMeals">確認清空</button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="showSaveSuccess" class="clear-confirm-overlay" @click.self="showSaveSuccess = false" @keydown.esc="showSaveSuccess = false">
+        <section class="clear-confirm-dialog" role="status" aria-modal="true" aria-labelledby="save-success-title" tabindex="-1">
+          <div class="clear-confirm-icon save-success-icon"><i class="bi bi-check2" aria-hidden="true"></i></div>
+          <h3 id="save-success-title">儲存成功</h3>
+          <p>可前往會員中心查看。</p>
+          <div class="save-success-action">
+            <button type="button" class="clear-confirm" @click="showSaveSuccess = false">知道了</button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </main>
 </template>
 
 <style scoped>
 .home-page { min-height: 100vh; color: #202824; background: #f9fbfa; }
 .hero-section {
-  position: relative; overflow: hidden; padding: 60px 5% 56px;
+  position: relative; overflow: visible; padding: 60px 5% 56px;
   background-image: url('../assets/hero-section.png');
   background-size: cover;
   background-position: center;
@@ -328,26 +459,24 @@ onMounted(() => {
 .hero-copy h1 { max-width: 780px; margin: 24px 0 14px; color: #163a2b; font-size: clamp(34px,4vw,52px); line-height: 1.18; letter-spacing: -2px; text-shadow: 0 1px 8px rgba(255,255,255,.9); }
 .hero-copy h1 em { color: #1ca862; font-style: normal; }
 .hero-copy > p { margin: 0 0 27px; color: #3f564b; font-size: 17px; font-weight: 500; line-height: 1.7; text-shadow: 0 1px 6px rgba(255,255,255,.95); }
-.calculator-card { padding: 23px 24px; background: rgba(255,255,255,.96); border-radius: 17px; box-shadow: 0 16px 40px rgba(61,92,71,.08); }
+.calculator-card { position: relative; z-index: 2; padding: 23px 24px; background: rgba(255,255,255,.96); border-radius: 17px; box-shadow: 0 16px 40px rgba(61,92,71,.08); }
 .calculator-card h2 { display: flex; gap: 8px; margin: 0 0 14px; font-size: 16px; align-items: center; }
 .calculator-row { display: grid; grid-template-columns: minmax(220px,1fr) 112px 105px 126px; gap: 10px; align-items: start; }
 .calculator-row input, .meal-select-trigger { width: 100%; height: 47px; padding: 0 13px; color: #2e3732; background: #fff; border: 1px solid #dce4df; border-radius: 9px; outline: none; }
 .calculator-row input:focus, .meal-select-trigger:focus, .meal-select-trigger[aria-expanded="true"] { border-color: #FAAC9A; box-shadow: none; }
 .food-search { position: relative; }
-.search-results { overflow: hidden auto; max-height: 270px; margin-top: 6px; background: #fff; border: 1px solid #dce4df; border-radius: 10px; box-shadow: 0 14px 35px rgba(38,64,49,.16); }
+.search-results { position: absolute; z-index: 30; top: 100%; right: 0; left: 0; overflow: hidden auto; max-height: 270px; margin-top: 6px; background: #fff; border: 1px solid #dce4df; border-radius: 10px; box-shadow: 0 14px 35px rgba(38,64,49,.16); }
 .search-results button { display: flex; justify-content: space-between; width: 100%; padding: 11px 13px; color: #2e3732; background: #fff; border: 0; border-bottom: 1px solid #eef2ef; cursor: pointer; }
 .search-results button:hover { color: #8b5144; background: #fff0ec; }
 .search-results small, .search-results p { color: #8b9790; }
 .search-results p { padding: 12px; margin: 0; }
-.meal-select { min-width: 0; }
+.meal-select { position: relative; min-width: 0; }
 .meal-select-trigger { display: flex; justify-content: space-between; cursor: pointer; align-items: center; }
 .meal-select-trigger i { color: #89958e; font-size: 12px; transition: transform .2s ease; }
 .meal-select-trigger[aria-expanded="true"] i { transform: rotate(180deg); }
 .meal-options button { align-items: center; }
 .meal-options button i { color: #29ad69; font-size: 16px; }
-.search-dropdown-enter-active, .search-dropdown-leave-active { transition: max-height .24s ease, margin-top .24s ease, opacity .18s ease, transform .24s ease; transform-origin: top; }
-.search-dropdown-enter-from, .search-dropdown-leave-to { max-height: 0; margin-top: 0; opacity: 0; transform: translateY(-6px); }
-.search-dropdown-enter-to, .search-dropdown-leave-from { max-height: 270px; opacity: 1; transform: translateY(0); }
+.search-dropdown-enter-active, .search-dropdown-leave-active { transition: none; }
 .weight-field { position: relative; }
 .weight-field input { padding-right: 42px; }
 .weight-field span { position: absolute; top: 14px; right: 11px; color: #8c9690; font-size: 13px; }
@@ -406,15 +535,37 @@ onMounted(() => {
 .selection-title h2 { display: flex; gap: 8px; margin: 0; font-size: 18px; align-items: center; }
 .selection-title h2 i { color: #27b86e; }
 .selection-title > span { display: grid; width: 22px; height: 22px; color: #27b86e; background: #e6f8ef; border-radius: 50%; font-size: 12px; font-weight: 700; place-items: center; }
+.selection-date { position: relative; display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: #748078; font-size: 13px; font-weight: 700; align-items: center; }
+.selection-date > span { display: flex; gap: 7px; align-items: center; }
+.selection-date i { color: #AAC0AF; }
+.meal-date-trigger { box-sizing: border-box; display: flex; justify-content: space-between; gap: 12px; min-width: 148px; height: 38px; padding: 0 11px; color: #33443b; background: #f7faf8; border: 1px solid #dce6df; border-radius: 9px; outline: none; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; align-items: center; }
+.meal-date-trigger:hover { border-color: #AAC0AF; }
+.meal-date-trigger:focus, .meal-date-trigger[aria-expanded="true"] { background: #fff; border-color: #FAAC9A; box-shadow: 0 0 0 3px rgba(250,172,154,.18); }
+.meal-date-trigger > i { color: #829087; font-size: 11px; transition: transform .2s; }
+.meal-date-trigger[aria-expanded="true"] > i { transform: rotate(180deg); }
+.meal-date-calendar { position: absolute; z-index: 60; top: calc(100% + 8px); right: 0; width: 294px; padding: 16px; color: #33443b; background: #fff; border: 1px solid #dce6df; border-radius: 16px; box-shadow: 0 18px 45px rgba(38,64,49,.18); }
+.meal-calendar-head { display: grid; grid-template-columns: 34px 1fr 34px; gap: 8px; align-items: center; }
+.meal-calendar-head strong { text-align: center; font-size: 15px; }
+.meal-calendar-head button { display: grid; width: 34px; height: 34px; padding: 0; color: #657a6b; background: #eef3ef; border: 0; border-radius: 9px; cursor: pointer; place-items: center; }
+.meal-calendar-head button:hover:not(:disabled) { color: #fff; background: #AAC0AF; }
+.meal-calendar-head button:disabled { opacity: .35; cursor: not-allowed; }
+.meal-calendar-weekdays, .meal-calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+.meal-calendar-weekdays { width: 100%; margin: 14px 0 6px; color: #939d97; font-size: 11px; text-align: center; }
+.meal-calendar-grid { width: 100%; }
+.meal-calendar-grid button, .meal-calendar-empty { aspect-ratio: 1; }
+.meal-calendar-grid button { padding: 0; color: #45534b; background: transparent; border: 0; border-radius: 9px; font-size: 12px; cursor: pointer; }
+.meal-calendar-grid button:hover:not(:disabled) { color: #8b5144; background: #fff0ec; }
+.meal-calendar-grid button.selected { color: #fff; background: #AAC0AF; font-weight: 800; }
+.meal-calendar-grid button:disabled { color: #cbd1cd; cursor: not-allowed; }
 .empty-selection { display: grid; min-height: 120px; color: #8b958f; place-content: center; text-align: center; }
 .empty-selection .empty-icon { color: #a7b1ab; font-size: 38px; }
 .empty-selection p { margin: 8px 0 0; font-size: 13px; line-height: 1.7; }
 .meal-icon { display: grid; height: 32px; color: #35b873; background: #f1f7f3; border-radius: 8px; font-size: 16px; place-items: center; }
 .meal-group-list { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 18px 0; }
 .meal-group-card { overflow: hidden; min-width: 0; background: #f8faf9; border: 1px solid #e2e9e4; border-radius: 14px; }
-.meal-group-card > header { display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 10px; padding: 13px 14px; background: #f0f7f3; align-items: center; }
+.meal-group-card > header { display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 10px; padding: 13px 14px; background: rgba(170, 192, 175, 0.3); align-items: center; }
 .meal-group-card h3 { margin: 0; font-size: 15px; }
-.meal-group-card header span { display: block; margin-top: 2px; color: #718078; font-size: 11px; }
+.meal-group-card header span { display: block; margin-top: 2px; color: #c43d3d; font-size: 11px; font-weight: 700; }
 .meal-group-empty { display: grid; min-height: 82px; margin: 0; color: #9aa49e; font-size: 12px; place-items: center; }
 .meal-group-items { max-height: 220px; padding: 4px 13px; margin: 0; overflow-y: auto; list-style: none; }
 .meal-group-items li { display: grid; grid-template-columns: minmax(0,1fr) auto 22px; gap: 8px; padding: 11px 0; align-items: center; border-bottom: 1px solid #e4eae6; }
@@ -431,6 +582,20 @@ onMounted(() => {
 .summary-total strong:last-child { color: #2abb6e; }
 .save-button { width: 100%; min-height: 46px; }
 .clear-button { display: block; margin: 10px auto 0; color: #9a6b6b; background: transparent; border: 0; font-size: 12px; cursor: pointer; }
+.clear-confirm-overlay { position: fixed; z-index: 1000; inset: 0; display: grid; padding: 20px; background: rgba(31,41,55,.3); backdrop-filter: blur(3px); place-items: center; }
+.clear-confirm-dialog { width: min(390px,100%); padding: 30px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 20px; box-shadow: 0 24px 70px rgba(31,41,55,.2); text-align: center; }
+.clear-confirm-icon { display: grid; width: 54px; height: 54px; margin: 0 auto 16px; color: #c43d3d; background: #fff0f0; border-radius: 50%; font-size: 23px; place-items: center; }
+.save-success-icon { color: #657a6b; background: #e5e7eb; }
+.clear-confirm-dialog h3 { margin: 0 0 9px; color: #163a2b; font-size: 20px; }
+.clear-confirm-dialog p { margin: 0; color: #718078; font-size: 14px; line-height: 1.65; }
+.clear-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.save-success-action { margin-top: 24px; }
+.clear-confirm-actions button, .save-success-action button { min-height: 43px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+.save-success-action button { width: 100%; }
+.clear-cancel { color: #657a6b; background: #eef3ef; border: 1px solid #dce6df; }
+.clear-confirm { color: #fff; background: #AAC0AF; border: 1px solid #AAC0AF; }
+.clear-cancel:hover { background: #e4ebe6; }
+.clear-confirm:hover { background: #FAAC9A; border-color: #FAAC9A; }
 @media (max-width: 1050px) {
   .hero-content { grid-template-columns: 1fr; }
   .nutrition-card { display: grid; grid-template-columns: 1fr 180px 1.4fr; gap: 22px; align-items: center; }

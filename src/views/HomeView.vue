@@ -253,13 +253,12 @@ onMounted(() => {
 .home-page { min-height: 100vh; color: #202824; background: #f9fbfa; }
 .hero-section {
   position: relative; overflow: hidden; padding: 60px 5% 56px;
-  background: radial-gradient(circle at 20% 10%, rgba(255,255,255,.95) 0 10%, transparent 32%),
-    radial-gradient(circle at 82% 76%, rgba(178,218,158,.48), transparent 28%),
-    linear-gradient(120deg, #edf6e8 0%, #f8fcf6 48%, #e3f0dc 100%);
+  background-image: url('../assets/hero-section.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
-.hero-section::before, .hero-section::after { position: absolute; content: ''; border-radius: 50%; opacity: .72; }
-.hero-section::before { width: 76px; height: 76px; right: 37%; top: 90px; background: #ff9e42; box-shadow: 170px 180px 0 -14px #ff7849, -480px 48px 0 -12px #ef5350; }
-.hero-section::after { width: 62px; height: 62px; left: 23%; top: 190px; background: #8dcb58; box-shadow: 300px -80px 0 -8px #4d9a42; }
+.hero-section::before, .hero-section::after { display: none; }
 .hero-content { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0,1.65fr) minmax(310px,.85fr); gap: 46px; width: min(1280px,100%); margin: 0 auto; align-items: center; }
 .ai-tag { display: inline-flex; padding: 8px 15px; color: #24ad68; background: rgba(255,255,255,.72); border-radius: 999px; font-size: 14px; font-weight: 700; }
 .hero-copy h1 { max-width: 780px; margin: 24px 0 14px; font-size: clamp(34px,4vw,52px); line-height: 1.18; letter-spacing: -2px; }

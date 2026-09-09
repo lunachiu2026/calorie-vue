@@ -1,111 +1,88 @@
 import { ref } from 'vue'
+import { apiRequest, clearApiSession } from './api.js'
 
-const DEMO_USER = 'admin'
-const DEMO_PASS = '1234'
-const USERS_KEY = 'auth_users'
-const DEMO_PROFILE_KEY = 'auth_demo_profile'
-
-const isLoggedIn = ref(localStorage.getItem('auth_loggedIn') === '1')
-const currentUser = ref(localStorage.getItem('auth_user') || '')
+const isLoggedIn = ref(false)
+const currentUser = ref('')
+const displayName = ref('')
 const dailyCalorieTarget = ref(2000)
+const profile = ref(null)
+let initializationPromise = null
 
-const getUsers = () => {
-  try {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-    return Array.isArray(users) ? users : []
-  } catch {
-    return []
-  }
-}
-
-const login = (username, password, remember) => {
-  const registeredUser = getUsers().find(user => user.username === username && user.password === password)
-  if ((username === DEMO_USER && password === DEMO_PASS) || registeredUser) {
-    isLoggedIn.value = true
-    currentUser.value = username
-    localStorage.setItem('auth_loggedIn', '1')
-    localStorage.setItem('auth_user', username)
-    if (remember) localStorage.setItem('auth_remember', '1')
-    syncDailyCalorieTarget()
-    return true
-  }
-  return false
-}
-
-const register = (username, password, email, fullName, phone) => {
-  const normalizedUsername = username.trim()
-  const normalizedEmail = email.trim().toLowerCase()
-  const users = getUsers()
-  if (normalizedUsername === DEMO_USER || users.some(user => user.username === normalizedUsername)) {
-    return { ok: false, message: '此帳號已被使用' }
-  }
-  if (users.some(user => user.email === normalizedEmail)) {
-    return { ok: false, message: '此電子郵件已註冊' }
-  }
-  users.push({ username: normalizedUsername, password, email: normalizedEmail, fullName: fullName.trim(), phone })
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
+const applyUser = user => {
+  profile.value = user
   isLoggedIn.value = true
-  currentUser.value = normalizedUsername
-  localStorage.setItem('auth_loggedIn', '1')
-  localStorage.setItem('auth_user', normalizedUsername)
-  syncDailyCalorieTarget()
-  return { ok: true }
+  currentUser.value = user.username
+  displayName.value = user.fullName || user.username
+  dailyCalorieTarget.value = Number(user.dailyCalories) || 2000
 }
 
-const getProfile = () => {
-  if (currentUser.value === DEMO_USER) {
-    try {
-      return { username: DEMO_USER, fullName: '管理員', email: '', phone: '', height: '', weight: '', bmi: '', sex: '', birthDate: '', activity: '', bmr: '', dailyCalories: '', ...JSON.parse(localStorage.getItem(DEMO_PROFILE_KEY) || '{}') }
-    } catch {
-      return { username: DEMO_USER, fullName: '管理員', email: '', phone: '', height: '', weight: '', bmi: '', sex: '', birthDate: '', activity: '', bmr: '', dailyCalories: '' }
-    }
-  }
-  const user = getUsers().find(item => item.username === currentUser.value)
-  return user ? { username: user.username, fullName: user.fullName || '', email: user.email || '', phone: user.phone || '', height: user.height || '', weight: user.weight || '', bmi: user.bmi || '', sex: user.sex || '', birthDate: user.birthDate || '', activity: user.activity || '', bmr: user.bmr || '', dailyCalories: user.dailyCalories || '' } : null
-}
-
-const syncDailyCalorieTarget = () => {
-  const profile = getProfile()
-  dailyCalorieTarget.value = Number(profile?.dailyCalories) || 2000
-}
-
-const updateProfile = profile => {
-  const normalizedEmail = profile.email.trim().toLowerCase()
-  const normalizedPhone = profile.phone.replace(/\D/g, '')
-  if (currentUser.value === DEMO_USER) {
-    let existingProfile = {}
-    try {
-      existingProfile = JSON.parse(localStorage.getItem(DEMO_PROFILE_KEY) || '{}')
-    } catch {
-      existingProfile = {}
-    }
-    localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify({ ...existingProfile, ...profile, fullName: profile.fullName.trim(), email: normalizedEmail, phone: normalizedPhone }))
-    syncDailyCalorieTarget()
-    return { ok: true }
-  }
-  const users = getUsers()
-  const index = users.findIndex(user => user.username === currentUser.value)
-  if (index < 0) return { ok: false, message: '找不到會員資料' }
-  if (users.some((user, userIndex) => userIndex !== index && user.email === normalizedEmail)) {
-    return { ok: false, message: '此電子郵件已被其他帳號使用' }
-  }
-  users[index] = { ...users[index], ...profile, fullName: profile.fullName.trim(), email: normalizedEmail, phone: normalizedPhone }
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-  syncDailyCalorieTarget()
-  return { ok: true }
-}
-
-const logout = () => {
+const clearUser = () => {
+  profile.value = null
   isLoggedIn.value = false
   currentUser.value = ''
+  displayName.value = ''
   dailyCalorieTarget.value = 2000
-  localStorage.removeItem('auth_loggedIn')
-  localStorage.removeItem('auth_user')
-  localStorage.removeItem('auth_remember')
+  clearApiSession()
 }
 
-syncDailyCalorieTarget()
+const initializeAuth = () => {
+  if (!initializationPromise) {
+    initializationPromise = apiRequest('me.php')
+      .then(result => {
+        if (result.authenticated) applyUser(result.user)
+        else clearUser()
+      })
+      .catch(clearUser)
+  }
+  return initializationPromise
+}
+
+const login = async (username, password, remember) => {
+  try {
+    const result = await apiRequest('login.php', { method: 'POST', body: { username, password, remember } })
+    applyUser(result.user)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: error.message }
+  }
+}
+
+const register = async (username, password, email, fullName, phone, acceptedTerms) => {
+  try {
+    const result = await apiRequest('register.php', { method: 'POST', body: { username, password, email, fullName, phone, acceptedTerms } })
+    applyUser(result.user)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: error.message }
+  }
+}
+
+const getProfile = () => profile.value ? { ...profile.value } : null
+
+const updateProfile = async updates => {
+  try {
+    const result = await apiRequest('profile.php', { method: 'PATCH', body: updates })
+    applyUser(result.user)
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: error.message }
+  }
+}
+
+const logout = async () => {
+  try {
+    await apiRequest('logout.php', { method: 'POST' })
+    clearUser()
+    return { ok: true }
+  } catch (error) {
+    if (error.status === 401) {
+      clearUser()
+      return { ok: true }
+    }
+    return { ok: false, message: error.message }
+  }
+}
 
 export function useAuth() {
-  return { isLoggedIn, currentUser, dailyCalorieTarget, login, register, getProfile, updateProfile, logout, DEMO_USER, DEMO_PASS }
+  return { isLoggedIn, currentUser, displayName, dailyCalorieTarget, initializeAuth, login, register, getProfile, updateProfile, logout }
 }

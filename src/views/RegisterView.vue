@@ -15,11 +15,13 @@ const confirmPassword = ref('')
 const agreedToTerms = ref(false)
 const error = ref('')
 const submitted = ref(false)
+const submitting = ref(false)
 
 const passwordChecks = computed(() => ({
   length: password.value.length >= 8,
   letter: /[A-Za-z]/.test(password.value),
-  number: /\d/.test(password.value)
+  number: /\d/.test(password.value),
+  maxLength: new TextEncoder().encode(password.value).length <= 72
 }))
 
 const formatPhone = event => {
@@ -33,7 +35,7 @@ const formatPhone = event => {
   }
 }
 
-const submit = () => {
+const submit = async () => {
   submitted.value = true
   error.value = ''
   const normalizedUsername = username.value.trim()
@@ -70,7 +72,9 @@ const submit = () => {
     error.value = '請先閱讀並同意會員使用條款與隱私權政策'
     return
   }
-  const result = register(normalizedUsername, password.value, normalizedEmail, fullName.value, normalizedPhone)
+  submitting.value = true
+  const result = await register(normalizedUsername, password.value, normalizedEmail, fullName.value, normalizedPhone, agreedToTerms.value)
+  submitting.value = false
   if (!result.ok) {
     error.value = result.message
     return
@@ -116,6 +120,7 @@ const submit = () => {
             <li :class="{ passed: passwordChecks.length }"><i class="bi" :class="passwordChecks.length ? 'bi-check-circle-fill' : 'bi-circle'"></i>至少 8 個字元</li>
             <li :class="{ passed: passwordChecks.letter }"><i class="bi" :class="passwordChecks.letter ? 'bi-check-circle-fill' : 'bi-circle'"></i>包含英文字母</li>
             <li :class="{ passed: passwordChecks.number }"><i class="bi" :class="passwordChecks.number ? 'bi-check-circle-fill' : 'bi-circle'"></i>包含數字</li>
+            <li :class="{ passed: passwordChecks.maxLength }"><i class="bi" :class="passwordChecks.maxLength ? 'bi-check-circle-fill' : 'bi-circle'"></i>不超過 72 bytes</li>
           </ul>
         </div>
         <div class="auth-field">
@@ -131,7 +136,7 @@ const submit = () => {
         <small v-if="submitted && !agreedToTerms" class="required-message terms-required">必填</small>
 
         <p v-if="error" class="auth-error"><i class="bi bi-exclamation-circle" aria-hidden="true"></i>{{ error }}</p>
-        <button type="submit" class="auth-submit">確認資料並建立帳號</button>
+        <button type="submit" class="auth-submit" :disabled="submitting">{{ submitting ? '建立中...' : '確認資料並建立帳號' }}</button>
       </form>
 
       <div class="auth-switch">
@@ -154,7 +159,7 @@ const submit = () => {
 .auth-input { box-sizing: border-box; width: 100%; height: 47px; padding: 0 13px; color: #29322d; background: #fff; border: 1px solid #d8dedb; border-radius: 10px; outline: none; font-size: 15px; transition: border-color .2s, box-shadow .2s; }
 .auth-input:focus { border-color: #AAC0AF; box-shadow: 0 0 0 3px rgba(170,192,175,.2); }
 .required-message { display: block; margin-top: 5px; color: #c43d3d; font-size: 12px; font-weight: 700; }
-.password-rules { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; padding: 0; margin: 10px 0 0; color: #c43d3d; list-style: none; font-size: 12px; font-weight: 700; }
+.password-rules { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; padding: 0; margin: 10px 0 0; color: #c43d3d; list-style: none; font-size: 12px; font-weight: 700; }
 .password-rules li { display: flex; gap: 4px; align-items: center; }
 .password-rules li.passed { color: #c43d3d; }
 .terms-check { display: flex; gap: 9px; margin: 3px 0 16px; color: #606b65; font-size: 12px; line-height: 1.5; align-items: flex-start; }
@@ -162,6 +167,7 @@ const submit = () => {
 .terms-required { margin: -10px 0 14px 25px; }
 .auth-error { display: flex; gap: 6px; margin: 0 0 13px; padding: 9px 11px; color: #c43d3d; background: #fff0f0; border-radius: 8px; font-size: 13px; align-items: center; }
 .auth-submit { width: 100%; min-height: 47px; color: #fff; background: #AAC0AF; border: 0; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background .2s, transform .2s; }
+.auth-submit:disabled { cursor: wait; opacity: .7; }
 .terms-check, .auth-error, .auth-submit { grid-column: auto; }
 .auth-submit:hover { background: #FAAC9A; transform: translateY(-1px); }
 .auth-switch { display: flex; justify-content: center; gap: 7px; margin-top: 22px; padding-top: 19px; color: #748078; border-top: 1px solid #ecefed; font-size: 14px; }

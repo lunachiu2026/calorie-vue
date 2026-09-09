@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../auth.js'
 
-const { login, DEMO_USER, DEMO_PASS } = useAuth()
+const { login } = useAuth()
 
 const router = useRouter()
 const route = useRoute()
@@ -12,16 +12,19 @@ const username = ref('')
 const password = ref('')
 const remember = ref(false)
 const error = ref('')
+const submitting = ref(false)
 
-const submit = () => {
+const submit = async () => {
   error.value = ''
   if (!username.value.trim() || !password.value) {
     error.value = '請輸入帳號與密碼'
     return
   }
-  const ok = login(username.value.trim(), password.value, remember.value)
-  if (!ok) {
-    error.value = '帳號或密碼錯誤'
+  submitting.value = true
+  const result = await login(username.value.trim(), password.value, remember.value)
+  submitting.value = false
+  if (!result.ok) {
+    error.value = result.message
     return
   }
   const redirect = route.query.redirect || '/records'
@@ -37,8 +40,6 @@ const submit = () => {
         <h2>歡迎回來</h2>
         <p>登入後即可儲存與管理每日飲食紀錄</p>
       </header>
-      <p class="demo-hint"><i class="bi bi-info-circle" aria-hidden="true"></i>Demo：{{ DEMO_USER }} ／ {{ DEMO_PASS }}</p>
-
       <form class="auth-form" @submit.prevent="submit">
         <div class="auth-field">
           <label for="username">帳號</label>
@@ -70,7 +71,7 @@ const submit = () => {
 
         <p v-if="error" class="auth-error"><i class="bi bi-exclamation-circle" aria-hidden="true"></i>{{ error }}</p>
 
-        <button type="submit" class="auth-submit">登入</button>
+        <button type="submit" class="auth-submit" :disabled="submitting">{{ submitting ? '登入中...' : '登入' }}</button>
       </form>
       <div class="auth-switch">
         <span>還沒有帳號嗎？</span>
@@ -96,6 +97,7 @@ const submit = () => {
 .auth-remember input { accent-color: #AAC0AF; }
 .auth-error { display: flex; gap: 6px; margin: 0 0 13px; padding: 9px 11px; color: #c43d3d; background: #fff0f0; border-radius: 8px; font-size: 13px; align-items: center; }
 .auth-submit { width: 100%; min-height: 47px; color: #fff; background: #AAC0AF; border: 0; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background .2s, transform .2s; }
+.auth-submit:disabled { cursor: wait; opacity: .7; }
 .auth-submit:hover { background: #FAAC9A; transform: translateY(-1px); }
 .auth-switch { display: flex; justify-content: center; gap: 7px; margin-top: 22px; padding-top: 19px; color: #748078; border-top: 1px solid #ecefed; font-size: 14px; }
 .auth-switch a { color: #657a6b; font-weight: 700; text-decoration: none; }

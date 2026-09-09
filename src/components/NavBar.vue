@@ -5,11 +5,15 @@ import { useAuth } from '../auth.js'
 
 const menuOpen = ref(false)
 const closeMenu = () => { menuOpen.value = false }
-const { isLoggedIn, dailyCalorieTarget, logout } = useAuth()
+const { isLoggedIn, displayName, dailyCalorieTarget, logout } = useAuth()
 const router = useRouter()
 
-const handleLogout = () => {
-  logout()
+const handleLogout = async () => {
+  const result = await logout()
+  if (!result.ok) {
+    window.alert(result.message)
+    return
+  }
   closeMenu()
   router.push('/')
 }
@@ -34,8 +38,11 @@ const handleLogout = () => {
     </nav>
 
     <div class="nav-actions">
-      <span class="daily-goal">今日目標：{{ Number(dailyCalorieTarget).toLocaleString() }} kcal</span>
-      <RouterLink v-if="!isLoggedIn" class="auth-button" to="/login">登入 / 註冊</RouterLink>
+      <span v-if="isLoggedIn" class="user-greeting">Hi，{{ displayName }}</span>
+      <span v-if="isLoggedIn" class="daily-goal">今日目標：{{ Number(dailyCalorieTarget).toLocaleString() }} kcal</span>
+      <RouterLink v-if="!isLoggedIn" class="auth-button" to="/login" @click="closeMenu">
+        <span class="auth-default">登入 / 註冊</span><span class="auth-mobile">登入追蹤</span>
+      </RouterLink>
       <button v-else class="logout-button" type="button" @click="handleLogout">登出</button>
     </div>
   </header>
@@ -44,7 +51,7 @@ const handleLogout = () => {
 <style scoped>
 .navbar {
   position: sticky; z-index: 50; top: 0; display: grid;
-  grid-template-columns: 220px 1fr 280px; align-items: center;
+  grid-template-columns: 220px 1fr 360px; align-items: center;
   min-height: 78px; padding: 0 max(5%, calc((100% - 1280px) / 2));
   background: rgba(255,255,255,.96); border-bottom: 1px solid #e7ece9;
   box-shadow: 0 3px 14px rgba(31,55,40,.03); backdrop-filter: blur(10px);
@@ -57,8 +64,10 @@ const handleLogout = () => {
 .nav-links a:hover, .nav-links a.active { color: #FAAC9A; background: transparent !important; box-shadow: none !important; }
 .nav-links a:focus { outline: none; background: transparent !important; box-shadow: none !important; }
 .nav-links a.active::after { background: #FAAC9A; }
-.nav-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
+.nav-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.user-greeting { overflow: hidden; max-width: 120px; color: #536158; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .daily-goal { padding: 8px 14px; color: #28b76b; background: #ebf9f2; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.auth-mobile { display: none; }
 .auth-button, .logout-button { display: inline-flex; min-height: 38px; padding: 0 15px; align-items: center; justify-content: center; color: #fff; background: #AAC0AF; border: 0; border-radius: 9px; font-size: 13px; font-weight: 700; text-decoration: none; cursor: pointer; white-space: nowrap; }
 .auth-button:hover, .logout-button:hover { color: #fff; background: #FAAC9A; }
 .hamburger { display: none; width: 40px; height: 40px; padding: 8px; background: transparent; border: 0; cursor: pointer; }
@@ -67,16 +76,20 @@ const handleLogout = () => {
 .hamburger.active span:nth-child(2) { opacity: 0; }
 .hamburger.active span:last-child { transform: translateY(-7px) rotate(-45deg); }
 @media (max-width: 1050px) {
-  .navbar { grid-template-columns: 180px 1fr 235px; padding: 0 3%; }
+  .navbar { grid-template-columns: 180px 1fr 315px; padding: 0 3%; }
   .nav-links { gap: 17px; }
   .brand img { width: 155px; }
+  .user-greeting { max-width: 90px; font-size: 12px; }
   .daily-goal { font-size: 12px; }
 }
 @media (max-width: 820px) {
   .navbar { display: flex; justify-content: space-between; min-height: 66px; padding: 0 18px; }
   .hamburger { display: block; order: 3; }
   .nav-actions { margin-left: auto; margin-right: 8px; }
+  .user-greeting { display: none; }
   .daily-goal { display: none; }
+  .auth-default { display: none; }
+  .auth-mobile { display: inline; }
   .nav-links { position: fixed; top: 66px; right: 0; display: flex; width: min(290px,82vw); height: calc(100vh - 66px); padding: 24px; align-items: stretch; flex-direction: column; justify-content: flex-start; gap: 4px; background: #fff; box-shadow: -14px 18px 35px rgba(32,56,41,.12); transform: translateX(105%); transition: transform .25s ease; }
   .nav-links.open { transform: translateX(0); }
   .nav-links a { display: flex; min-height: 49px; padding: 0 12px; border-radius: 9px; }

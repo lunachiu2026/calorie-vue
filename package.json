@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "api": "C:\\xampp\\php\\php.exe -S 127.0.0.1:8000 -t backend",
+    "db:setup": "C:\\xampp\\php\\php.exe backend/database/setup.php",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

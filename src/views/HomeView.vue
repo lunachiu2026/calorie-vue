@@ -1,18 +1,71 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../auth.js'
-import foods from '../data/foods.json'
+import { apiRequest } from '../api.js'
+import { macroTargets, remaining } from '../progress.js'
 import mealPhoto from '../assets/healthy-meals.png'
 
-const STORAGE_KEY = 'calorie-meals'
+const saving = ref(false)
+const loadingMeals = ref(false)
+const mealsLoaded = ref(false)
+const mealError = ref('')
+let loadVersion = 0
 const DEFAULT_CALORIE_TARGET = 2000
 const RESTAURANT_URL = 'https://theproteinbox.com.tw/'
 const router = useRouter()
-const { isLoggedIn, dailyCalorieTarget } = useAuth()
+const { isLoggedIn, dailyCalorieTarget, currentUser } = useAuth()
 const calorieTarget = computed(() => Number(dailyCalorieTarget.value) || DEFAULT_CALORIE_TARGET)
 const mealTypes = ['早餐', '午餐', '晚餐']
-const foodDatabase = ref(foods)
+const foodDatabase = ref([])
+const foodsLoading = ref(false)
+const foodsError = ref('')
+const foodCategories = ref(['全部'])
+const recommendationFoods = ref([])
+const hasMoreFoods = ref(false)
+const foodCursor = ref(null)
+const currentSelectedFood = ref(null)
+let foodSearchVersion = 0
+let foodSearchTimer
+let metadataLoaded = false
+const loadFoods = async (append = false) => {
+  if (append && (foodsLoading.value || !hasMoreFoods.value || !foodCursor.value)) return
+  clearTimeout(foodSearchTimer)
+  const version = ++foodSearchVersion
+  foodsLoading.value = true
+  foodsError.value = ''
+  if (!append) {
+    foodDatabase.value = []
+    foodCursor.value = null
+    hasMoreFoods.value = false
+  }
+  const params = new URLSearchParams({ q: searchQuery.value.trim() })
+  if (activeCategory.value !== '全部') params.set('category', activeCategory.value)
+  if (append && foodCursor.value) params.set('after', foodCursor.value)
+  if (!metadataLoaded) params.set('meta', '1')
+  try {
+    const result = await apiRequest('foods.php?' + params)
+    if (version !== foodSearchVersion) return
+    foodDatabase.value = append ? [...foodDatabase.value, ...result.foods] : result.foods
+    hasMoreFoods.value = result.hasMore
+    foodCursor.value = result.nextCursor
+    if (result.categories) {
+      foodCategories.value = ['全部', ...result.categories]
+      recommendationFoods.value = result.recommendations
+      metadataLoaded = true
+    }
+  } catch (error) {
+    if (version === foodSearchVersion) foodsError.value = error.message
+  } finally {
+    if (version === foodSearchVersion) foodsLoading.value = false
+  }
+}
+const handleFoodScroll = event => {
+  const list = event.currentTarget
+  if (!foodsError.value && list.scrollHeight - list.scrollTop - list.clientHeight <= 48) {
+    loadFoods(true)
+  }
+}
 const searchQuery = ref('')
 const selectedFoodName = ref('')
 const activeCategory = ref('全部')
@@ -68,14 +121,17 @@ const changeMealDateCalendarMonth = offset => {
 }
 
 const selectMealDate = day => {
-  if (day.disabled) return
+  if (day.disabled || saving.value) return
   mealDate.value = day.key
   mealDateCalendarOpen.value = false
 }
 
-const foodCategories = computed(() => ['全部', ...new Set(foodDatabase.value.map(food => food.category))])
 const categoryIcons = {
   全部: 'bi-grid-fill',
+  優格類: 'bi-cup-straw',
+  早餐類: 'bi-sunrise-fill',
+  零食類: 'bi-cookie',
+  飲料類: 'bi-cup-straw',
   全穀雜糧類: 'bi-circle-fill',
   肉類與蛋類: 'bi-egg-fried',
   海鮮類: 'bi-water',
@@ -83,18 +139,16 @@ const categoryIcons = {
   水果類: 'bi-apple'
 }
 
-const filteredFoods = computed(() => {
-  const keyword = searchQuery.value.trim().toLowerCase()
-  return foodDatabase.value.filter(food => {
-    const matchesCategory = activeCategory.value === '全部' || food.category === activeCategory.value
-    const matchesKeyword = !keyword || food.name.toLowerCase().includes(keyword)
-    return matchesCategory && matchesKeyword
-  })
-})
-
-const currentSelectedFood = computed(() =>
-  foodDatabase.value.find(food => food.name === selectedFoodName.value)
-)
+const filteredFoods = foodDatabase
+watch([searchQuery, activeCategory], () => {
+  clearTimeout(foodSearchTimer)
+  ++foodSearchVersion
+  foodDatabase.value = []
+  hasMoreFoods.value = false
+  foodsError.value = ''
+  foodsLoading.value = true
+  foodSearchTimer = setTimeout(() => loadFoods(), 250)
+}, { flush: 'sync' })
 
 const calculatedPreview = computed(() => {
   if (!currentSelectedFood.value || inputWeight.value <= 0) {
@@ -111,6 +165,7 @@ const calculatedPreview = computed(() => {
 })
 
 const selectSearchResult = food => {
+  currentSelectedFood.value = food
   selectedFoodName.value = food.name
   searchQuery.value = food.name
   dropdownOpen.value = false
@@ -120,6 +175,7 @@ const selectCategory = category => {
   activeCategory.value = category
   searchQuery.value = ''
   selectedFoodName.value = ''
+  currentSelectedFood.value = null
   mealDropdownOpen.value = false
   dropdownOpen.value = true
 }
@@ -131,6 +187,7 @@ const toggleSearchDropdown = () => {
 
 const handleSearchInput = () => {
   selectedFoodName.value = ''
+  currentSelectedFood.value = null
   dropdownOpen.value = true
   mealDropdownOpen.value = false
 }
@@ -156,7 +213,7 @@ const selectMealType = mealType => {
 }
 
 const addFood = (food, weight, mealType) => {
-  if (!food || weight <= 0) return
+  if (loadingMeals.value || saving.value || !food || !Number.isFinite(Number(weight)) || weight < 0.01 || weight > 10000) return
   const ratio = weight / 100
   meals.value[mealType].push({
     name: food.name,
@@ -169,7 +226,9 @@ const addFood = (food, weight, mealType) => {
 }
 
 const addCurrentFood = () => addFood(currentSelectedFood.value, inputWeight.value, activeMeal.value)
-const removeFoodFromMeal = (mealType, index) => meals.value[mealType].splice(index, 1)
+const removeFoodFromMeal = (mealType, index) => {
+  if (!saving.value) meals.value[mealType].splice(index, 1)
+}
 
 const getMealSummary = mealType => meals.value[mealType].reduce(
   (summary, item) => ({
@@ -195,23 +254,24 @@ const totalMacros = computed(() => mealTypes.reduce((total, mealType) => {
   return total
 }, { protein: 0, carbs: 0, fat: 0 }))
 const calorieProgress = computed(() => Math.min(100, Math.round((totalMealCalories.value / calorieTarget.value) * 100)))
+const nutritionDayLabel = computed(() => mealDate.value === todayDateKey ? '今日' : mealDateLabel.value)
+const targets = computed(() => macroTargets(calorieTarget.value))
+const macroRows = computed(() => [
+  { key: 'protein', label: '蛋白質' }, { key: 'carbs', label: '碳水化合物' }, { key: 'fat', label: '脂肪' }
+].map(item => ({ ...item, consumed: totalMacros.value[item.key], target: targets.value[item.key], ...remaining(targets.value[item.key], totalMacros.value[item.key]) })))
 const calorieStatus = computed(() => {
-  const difference = totalMealCalories.value - calorieTarget.value
-  if (difference > 0) {
-    return { type: 'over', text: `⚠️ 今日已超出熱量 ${difference.toLocaleString()} kcal` }
-  }
-  if (difference === 0) {
-    return { type: 'reached', text: '🎉 恭喜！今日熱量目標已達成' }
-  }
-  return { type: 'deficit', text: `目前熱量赤字 ${Math.abs(difference).toLocaleString()} kcal` }
+  const balance = remaining(calorieTarget.value, totalMealCalories.value)
+  return balance.over > 0
+    ? { type: 'over', text: nutritionDayLabel.value + '已超出 ' + balance.over.toLocaleString() + ' kcal' }
+    : { type: 'deficit', text: nutritionDayLabel.value + '剩餘 ' + balance.remaining.toLocaleString() + ' kcal' }
 })
 const ringStyle = computed(() => ({
   background: `conic-gradient(${totalMealCalories.value > calorieTarget.value ? '#ef4444' : '#37c77a'} ${calorieProgress.value * 3.6}deg, #edf2ef 0deg)`
 }))
 const macroWidth = (value, target) => `${Math.min(100, Math.round((value / target) * 100))}%`
 const recommendationNutrition = item => {
-  const food = foodDatabase.value.find(foodItem => foodItem.name === item.name)
-  return food ? Math.round(food.calories * (item.weight / 100)) : 0
+  const food = recommendationFoods.value.find(foodItem => foodItem.name === item.name)
+  return food ? Math.round(food.calories * (item.weight / 100)) : '—'
 }
 
 const clearAllMeals = () => {
@@ -219,43 +279,61 @@ const clearAllMeals = () => {
 }
 
 const confirmClearAllMeals = () => {
+  if (saving.value) return
   meals.value = { 早餐: [], 午餐: [], 晚餐: [] }
-  localStorage.removeItem(STORAGE_KEY)
   showClearConfirm.value = false
 }
 
-const saveMeals = () => {
+const saveMeals = async () => {
+  if (saving.value || loadingMeals.value || (isLoggedIn.value && !mealsLoaded.value)) return
   if (!isLoggedIn.value) {
     router.push({ path: '/login', query: { redirect: '/' } })
     return
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(meals.value))
-  const records = JSON.parse(localStorage.getItem('calorie-records') || '[]')
-  const [year, month, day] = mealDate.value.split('-').map(Number)
-  const now = new Date()
-  const selectedDateTime = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds())
-  records.unshift({ id: Date.now(), savedAt: selectedDateTime.toISOString(), meals: JSON.parse(JSON.stringify(meals.value)) })
-  localStorage.setItem('calorie-records', JSON.stringify(records))
-  showSaveSuccess.value = true
+  saving.value = true
+  mealError.value = ''
+  try {
+    await apiRequest('records.php', { method: 'PUT', body: { mealDate: mealDate.value, meals: meals.value } })
+    showSaveSuccess.value = true
+  } catch (error) {
+    mealError.value = error.message
+  } finally {
+    saving.value = false
+  }
 }
-
+const loadMeals = async () => {
+  const version = ++loadVersion
+  meals.value = { 早餐: [], 午餐: [], 晚餐: [] }
+  mealError.value = ''
+  showSaveSuccess.value = false
+  loadingMeals.value = false
+  mealsLoaded.value = false
+  if (!isLoggedIn.value) return
+  loadingMeals.value = true
+  try {
+    const result = await apiRequest('records.php')
+    if (version !== loadVersion) return
+    const record = result.records.find(record => record.mealDate === mealDate.value)
+    if (record) meals.value = record.meals
+    mealsLoaded.value = true
+  } catch (error) {
+    if (version === loadVersion) mealError.value = error.message
+  } finally {
+    if (version === loadVersion) loadingMeals.value = false
+  }
+}
+watch([mealDate, currentUser], loadMeals, { immediate: true })
 onMounted(() => {
   document.addEventListener('click', handleOutsideClick)
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (!saved) return
-  try {
-    const parsed = JSON.parse(saved)
-    meals.value = {
-      早餐: Array.isArray(parsed.早餐) ? parsed.早餐 : [],
-      午餐: Array.isArray(parsed.午餐) ? parsed.午餐 : [],
-      晚餐: Array.isArray(parsed.晚餐) ? parsed.晚餐 : []
-    }
-  } catch (error) {
-    console.error('讀取儲存紀錄失敗', error)
-  }
+  loadFoods()
 })
 
-onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick)
+  clearTimeout(foodSearchTimer)
+  ++foodSearchVersion
+  ++loadVersion
+})
 </script>
 
 <template>
@@ -274,11 +352,17 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
                 <input v-model="searchQuery" type="text" placeholder="輸入食物名稱，例如：鮭魚"
                   @click="toggleSearchDropdown" @input="handleSearchInput" @keyup.enter="addCurrentFood" />
                 <Transition name="search-dropdown">
-                  <div v-if="dropdownOpen" class="search-results">
+                  <div v-if="dropdownOpen" class="search-results food-results" :aria-busy="foodsLoading" @scroll.passive="handleFoodScroll">
                     <button v-for="food in filteredFoods" :key="food.name" type="button" @click="selectSearchResult(food)">
                       <span>{{ food.name }}</span><small>{{ food.calories }} kcal / 100g</small>
                     </button>
-                    <p v-if="filteredFoods.length === 0">找不到符合的食物</p>
+                    <div class="food-results-status" aria-live="polite">
+                      <p v-if="foodsLoading">載入中…</p>
+                      <button v-else-if="foodsError" type="button" @click="loadFoods(hasMoreFoods)">載入失敗，點此重試</button>
+                      <p v-else-if="filteredFoods.length === 0">找不到符合的食物</p>
+                      <p v-else-if="hasMoreFoods">往下捲動載入更多食物</p>
+                      <p v-else>已顯示所有符合的食物</p>
+                    </div>
                   </div>
                 </Transition>
               </div>
@@ -307,7 +391,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
               <button v-for="category in foodCategories" :key="category" type="button"
                 :class="{ active: activeCategory === category }" :aria-pressed="activeCategory === category"
                 @click="selectCategory(category)">
-                <i class="bi" :class="categoryIcons[category]" aria-hidden="true"></i>{{ category }}
+                <i class="bi" :class="categoryIcons[category] || 'bi-grid-fill'" aria-hidden="true"></i>{{ category }}
               </button>
             </div>
             <div class="preview-row">
@@ -317,22 +401,48 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
               <span>脂肪：<b>{{ calculatedPreview.fat }}g</b></span>
             </div>
           </div>
+
         </div>
 
         <aside class="nutrition-card">
-          <h2>今日營養達成度</h2>
-          <div class="progress-ring" :style="ringStyle">
-            <div class="ring-center">
-              <strong>{{ totalMealCalories.toLocaleString() }}</strong>
-              <span>目標：{{ calorieTarget.toLocaleString() }} kcal</span>
+          <template v-if="isLoggedIn">
+            <h2>{{ nutritionDayLabel }}營養達成度</h2>
+            <div class="progress-ring" :style="ringStyle">
+              <div class="ring-center">
+                <strong>{{ totalMealCalories.toLocaleString() }}</strong>
+                <span>目標：{{ calorieTarget.toLocaleString() }} kcal</span>
+              </div>
             </div>
-          </div>
-          <p class="calorie-status" :class="calorieStatus.type">{{ calorieStatus.text }}</p>
-          <div class="macro-stats">
-            <div><span>蛋白質</span><strong>{{ Math.round(totalMacros.protein) }}g</strong><i><b :style="{ width: macroWidth(totalMacros.protein, 100) }"></b></i></div>
-            <div><span>碳水化合物</span><strong>{{ Math.round(totalMacros.carbs) }}g</strong><i><b :style="{ width: macroWidth(totalMacros.carbs, 250) }"></b></i></div>
-            <div><span>脂肪</span><strong>{{ Math.round(totalMacros.fat) }}g</strong><i><b :style="{ width: macroWidth(totalMacros.fat, 70) }"></b></i></div>
-          </div>
+            <p class="calorie-status" :class="calorieStatus.type">{{ calorieStatus.text }}</p>
+            <div
+              class="calorie-progress"
+              :class="{ over: totalMealCalories > calorieTarget }"
+              role="progressbar"
+              :aria-label="nutritionDayLabel + '熱量進度'"
+              :aria-valuenow="totalMealCalories"
+              aria-valuemin="0"
+              :aria-valuemax="calorieTarget"
+            >
+              <span class="calorie-progress-fill" :style="{ width: calorieProgress + '%' }"></span>
+              <span class="calorie-progress-label">熱量計算：{{ totalMealCalories.toLocaleString() }} kcal</span>
+            </div>
+            <div class="macro-stats">
+              <div v-for="macro in macroRows" :key="macro.key"><span>{{ macro.label }}</span><strong>{{ Math.round(macro.consumed * 10) / 10 }} / {{ Math.round(macro.target * 10) / 10 }} g</strong><i><b :style="{ width: macroWidth(macro.consumed, macro.target) }"></b></i><small :class="{ 'macro-over': macro.over > 0 }">{{ macro.over > 0 ? '超出' : '剩餘' }} {{ Math.round((macro.over || macro.remaining) * 10) / 10 }} g</small></div>
+            </div>
+            <RouterLink class="progress-link" to="/records">查看歷史飲食與體重成果 →</RouterLink>
+          </template>
+          <template v-else>
+            <h2>{{ nutritionDayLabel }}飲食概況</h2>
+            <div class="guest-calorie">
+              <strong>{{ totalMealCalories.toLocaleString() }}</strong>
+              <span>目前清單熱量（kcal）</span>
+            </div>
+            <div class="guest-goal-reminder">
+              <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+              <p>登入後即可設定並追蹤自己的每日熱量目標、剩餘熱量與營養素。</p>
+            </div>
+            <RouterLink class="guest-login-link" :to="{ path: '/login', query: { redirect: '/' } }">登入 / 註冊</RouterLink>
+          </template>
         </aside>
       </div>
     </section>
@@ -410,7 +520,13 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
           </div>
           <div class="summary-total"><strong>今日總計</strong><strong>{{ totalMealCalories }} kcal</strong></div>
         </div>
-        <button class="save-button" type="button" :disabled="selectedItems.length === 0 || !mealDate" @click="saveMeals">儲存今日飲食紀錄</button>
+        <button class="save-button" type="button" :disabled="saving || loadingMeals || (isLoggedIn && !mealsLoaded) || selectedItems.length === 0 || !mealDate" @click="saveMeals">{{ saving ? '儲存中…' : '儲存今日飲食紀錄' }}</button>
+        <p v-if="loadingMeals" role="status">正在讀取飲食紀錄…</p>
+        <p v-if="mealError" role="alert" style="color: #b42318">{{ mealError }} <button type="button" @click="loadMeals">重新讀取</button></p>
+        <div class="save-reminder" role="note">
+          <i class="bi bi-info-circle" aria-hidden="true"></i>
+          <p>同一天再次儲存會更新該日紀錄。<span>切換日期前請先儲存目前清單。</span></p>
+        </div>
         <button v-if="selectedItems.length" class="clear-button" type="button" @click="clearAllMeals">清空清單</button>
       </aside>
     </section>
@@ -445,6 +561,23 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 </template>
 
 <style scoped>
+.calorie-progress { position: relative; overflow: hidden; display: grid; width: 100%; min-height: 38px; margin: 12px 0 20px; background: #eef3ef; border-radius: 9px; place-items: center; }
+.calorie-progress-fill { position: absolute; inset: 0 auto 0 0; background: #aac0af; border-radius: inherit; transition: width .3s ease; }
+.calorie-progress.over .calorie-progress-fill { background: #f3b4b4; }
+.calorie-progress-label { position: relative; z-index: 1; color: #45644f; font-size: 14px; font-weight: 700; }
+.calorie-progress.over .calorie-progress-label { color: #8f2929; }
+.macro-stats small { display: block; margin-top: 6px; color: #45644f; font-size: 12px; }
+.macro-stats .macro-over { color: #b42318; }
+.progress-link { display: block; margin-top: 14px; text-align: center; color: #356d49; font-size: 13px; }
+.guest-calorie { display: grid; width: 180px; height: 180px; margin: 10px auto 22px; background: #eef3ef; border-radius: 50%; text-align: center; place-content: center; }
+.guest-calorie strong { font-size: 34px; color: #263b2f; }
+.guest-calorie span { margin-top: 6px; color: #718078; font-size: 12px; }
+.guest-goal-reminder { display: flex; align-items: flex-start; gap: 10px; padding: 13px 14px; color: #52695b; background: #f1f6f2; border: 1px solid #dce7df; border-radius: 10px; font-size: 13px; line-height: 1.7; }
+.guest-goal-reminder i { flex-shrink: 0; margin-top: 2px; color: #28b76b; }
+.guest-goal-reminder p { margin: 0; }
+.guest-login-link { display: grid; min-height: 43px; margin-top: 14px; color: #fff; background: #AAC0AF; border-radius: 9px; font-size: 13px; font-weight: 700; text-decoration: none; place-items: center; }
+.guest-login-link:hover { background: #FAAC9A; }
+
 .home-page { min-height: 100vh; color: #202824; background: #f9fbfa; }
 .hero-section {
   position: relative; overflow: visible; padding: 60px 5% 56px;
@@ -470,6 +603,8 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 .search-results button:hover { color: #8b5144; background: #fff0ec; }
 .search-results small, .search-results p { color: #8b9790; }
 .search-results p { padding: 12px; margin: 0; }
+.food-results { overscroll-behavior-y: contain; overflow-anchor: none; }
+.food-results-status { min-height: 48px; }
 .meal-select { position: relative; min-width: 0; }
 .meal-select-trigger { display: flex; justify-content: space-between; cursor: pointer; align-items: center; }
 .meal-select-trigger i { color: #89958e; font-size: 12px; transition: transform .2s ease; }
@@ -497,8 +632,8 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 .ring-center { display: grid; width: 145px; height: 145px; background: #fff; border-radius: 50%; place-content: center; text-align: center; }
 .ring-center strong { font-size: 32px; line-height: 1.1; }
 .ring-center span { margin-top: 5px; color: #7e8983; font-size: 12px; }
-.calorie-status { margin: -8px 0 22px; padding: 9px 12px; border-radius: 9px; text-align: center; font-size: 13px; font-weight: 700; }
-.calorie-status.deficit { color: #657a6b; background: #eef3ef; }
+.calorie-status { margin: -8px 0 18px; text-align: center; font-size: 13px; font-weight: 700; }
+.calorie-status.deficit { color: #657a6b; }
 .calorie-status.reached { color: #79553f; background: #fff0ec; }
 .calorie-status.over { color: #c43d3d; background: #fff0f0; }
 .macro-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
@@ -581,6 +716,9 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 .meal-summary .summary-total { color: #253029; background: #edf8f2; font-size: 16px; }
 .summary-total strong:last-child { color: #2abb6e; }
 .save-button { width: 100%; min-height: 46px; }
+.save-reminder { display: flex; align-items: flex-start; justify-content: center; gap: 10px; margin-top: 12px; padding: 12px 14px; color: #4f6457; background: #f1f6f2; border: 1px solid #dce7df; border-radius: 10px; text-align: center; }
+.save-reminder > i { flex-shrink: 0; margin-top: 2px; font-size: 16px; }
+.save-reminder p { margin: 0; font-size: 13px; line-height: 1.7; }
 .clear-button { display: block; margin: 10px auto 0; color: #9a6b6b; background: transparent; border: 0; font-size: 12px; cursor: pointer; }
 .clear-confirm-overlay { position: fixed; z-index: 1000; inset: 0; display: grid; padding: 20px; background: rgba(31,41,55,.3); backdrop-filter: blur(3px); place-items: center; }
 .clear-confirm-dialog { width: min(390px,100%); padding: 30px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 20px; box-shadow: 0 24px 70px rgba(31,41,55,.2); text-align: center; }

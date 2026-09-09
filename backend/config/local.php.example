@@ -1,0 +1,9 @@
+<?php
+
+return [
+    'host' => '127.0.0.1',
+    'port' => 3306,
+    'database' => 'calorie_db',
+    'username' => 'root',
+    'password' => '請改成你的 MySQL root 密碼',
+];

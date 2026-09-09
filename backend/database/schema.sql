@@ -1,0 +1,80 @@
+CREATE DATABASE IF NOT EXISTS calorie_db
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE calorie_db;
+
+CREATE TABLE IF NOT EXISTS foods (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  aliases VARCHAR(255) NULL,
+  category VARCHAR(50) NOT NULL,
+  weight_g DECIMAL(6,2) NOT NULL DEFAULT 100 CHECK (weight_g = 100),
+  calories DECIMAL(9,3) NOT NULL CHECK (calories >= 0),
+  protein_g DECIMAL(9,3) NOT NULL CHECK (protein_g >= 0),
+  fat_g DECIMAL(9,3) NOT NULL CHECK (fat_g >= 0),
+  carbs_g DECIMAL(9,3) NOT NULL CHECK (carbs_g >= 0),
+  source VARCHAR(255) NULL,
+  source_id VARCHAR(50) NULL,
+  description TEXT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  username VARCHAR(20) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  full_name VARCHAR(100) NOT NULL,
+  phone VARCHAR(10) NOT NULL,
+  terms_accepted_at TIMESTAMP NOT NULL,
+  height DECIMAL(5,2) NULL,
+  weight DECIMAL(5,2) NULL,
+  bmi DECIMAL(4,1) NULL,
+  sex ENUM('male', 'female') NULL,
+  birth_date DATE NULL,
+  activity DECIMAL(3,1) NULL,
+  bmr SMALLINT UNSIGNED NULL,
+  daily_calories SMALLINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY users_username_unique (username),
+  UNIQUE KEY users_email_unique (email)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS meal_records (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  meal_date DATE NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY user_meal_date (user_id, meal_date),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS weight_records (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  record_date DATE NOT NULL,
+  weight_kg DECIMAL(5,2) NOT NULL CHECK (weight_kg BETWEEN 20 AND 300),
+  UNIQUE KEY user_weight_date (user_id, record_date),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS weight_goals (
+  user_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+  target_kg DECIMAL(5,2) NOT NULL CHECK (target_kg BETWEEN 20 AND 300),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS meal_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  record_id BIGINT UNSIGNED NOT NULL,
+  meal_type VARCHAR(10) NOT NULL,
+  food_name VARCHAR(100) NOT NULL,
+  weight_g DECIMAL(8,2) NOT NULL,
+  calories INT UNSIGNED NOT NULL,
+  protein_g DECIMAL(10,1) NOT NULL,
+  fat_g DECIMAL(10,1) NOT NULL,
+  carbs_g DECIMAL(10,1) NOT NULL,
+  FOREIGN KEY (record_id) REFERENCES meal_records(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

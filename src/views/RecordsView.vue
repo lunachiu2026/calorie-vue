@@ -1,10 +1,15 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, onMounted } from 'vue'
+import { apiRequest } from '../api.js'
+import DietTrends from '../components/DietTrends.vue'
+import WeightTracker from '../components/WeightTracker.vue'
 import { useAuth } from '../auth.js'
 
 const { getProfile, updateProfile } = useAuth()
 
-const RECORDS_KEY = 'calorie-records'
+const recordsError = ref('')
+const recordsLoading = ref(false)
+const deleting = ref(false)
 const DEFAULT_CALORIE_TARGET = 2000
 const records = ref([])
 const showClearConfirm = ref(false)
@@ -29,15 +34,19 @@ const mealTypes = [
   { key: '晚餐', label: '晚餐' }
 ]
 
-const loadRecords = () => {
+const loadRecords = async () => {
+  recordsLoading.value = true
+  recordsError.value = ''
   try {
-    records.value = JSON.parse(localStorage.getItem(RECORDS_KEY) || '[]')
+    records.value = (await apiRequest('records.php')).records
     if (records.value.length && !selectedDate.value) {
       selectedDate.value = dateKey(records.value[0].savedAt)
       calendarMonth.value = selectedDate.value.slice(0, 7)
     }
-  } catch (e) {
-    records.value = []
+  } catch (error) {
+    recordsError.value = error.message
+  } finally {
+    recordsLoading.value = false
   }
 }
 
@@ -49,6 +58,7 @@ const dateKey = savedAt => {
 
 const filteredRecords = computed(() => {
   const sortedRecords = [...records.value].sort((first, second) => new Date(second.savedAt) - new Date(first.savedAt))
+  if (recordFilter.value === 'all') return sortedRecords
   if (recordFilter.value === 'date') {
     const matchingRecords = selectedDate.value
       ? sortedRecords.filter(record => dateKey(record.savedAt) === selectedDate.value)
@@ -139,7 +149,7 @@ const formatProfilePhone = event => {
   profileDraft.value.phone = formatPhoneDisplay(event.target.value)
 }
 
-const saveProfile = () => {
+const saveProfile = async () => {
   profileError.value = ''
   profileSuccess.value = ''
   const phoneDigits = profileDraft.value.phone.replace(/\D/g, '')
@@ -155,7 +165,7 @@ const saveProfile = () => {
     profileError.value = '請輸入有效的台灣手機號碼'
     return
   }
-  const result = updateProfile(profileDraft.value)
+  const result = await updateProfile(profileDraft.value)
   if (!result.ok) {
     profileError.value = result.message
     return
@@ -198,7 +208,7 @@ const formatBirthDate = event => {
   }
 }
 
-const calculateAndSaveBmi = () => {
+const calculateAndSaveBmi = async () => {
   bmiError.value = ''
   const height = Number(bmiForm.value.height)
   const weight = Number(bmiForm.value.weight)
@@ -246,8 +256,7 @@ const calculateAndSaveBmi = () => {
   const sexAdjustment = bmiForm.value.sex === 'male' ? 5 : -161
   const bmr = Math.round(10 * weight + 6.25 * height - 5 * age + sexAdjustment)
   const dailyCalories = Math.round(bmr * activity)
-  const result = updateProfile({
-    ...profile.value,
+  const result = await updateProfile({
     height,
     weight,
     bmi,
@@ -304,21 +313,26 @@ const formatDate = savedAt => {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`
 }
 
+const removeRecords = async body => {
+  if (deleting.value) return
+  deleting.value = true
+  recordsError.value = ''
+  try {
+    await apiRequest('records.php', { method: 'DELETE', body })
+    records.value = body.all ? [] : records.value.filter(record => record.id !== body.id)
+    showClearConfirm.value = false
+  } catch (error) {
+    recordsError.value = error.message
+    showClearConfirm.value = false
+  } finally {
+    deleting.value = false
+  }
+}
 const deleteRecord = id => {
-  if (!confirm('確定要刪除這筆紀錄嗎？')) return
-  records.value = records.value.filter(r => r.id !== id)
-  localStorage.setItem(RECORDS_KEY, JSON.stringify(records.value))
+  if (!deleting.value && confirm('確定要刪除這筆紀錄嗎？')) removeRecords({ id })
 }
-
-const clearAll = () => {
-  showClearConfirm.value = true
-}
-
-const confirmClearAll = () => {
-  records.value = []
-  localStorage.removeItem(RECORDS_KEY)
-  showClearConfirm.value = false
-}
+const clearAll = () => { showClearConfirm.value = true }
+const confirmClearAll = () => removeRecords({ all: true })
 
 onMounted(() => {
   loadProfile()
@@ -360,9 +374,9 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
 
       <div v-if="!editingProfile" class="bmi-section">
         <div v-if="profile.bmi" class="bmi-summary">
-          <div><span>目前 BMI</span><strong>{{ profile.bmi }}</strong></div>
+          <div><span>上次評估 BMI</span><strong>{{ profile.bmi }}</strong></div>
           <b>{{ bmiCategory(profile.bmi) }}</b>
-          <small>身高 {{ profile.height }} cm · 體重 {{ profile.weight }} kg</small>
+          <small>身高 {{ profile.height }} cm · 評估時體重 {{ profile.weight }} kg</small>
         </div>
         <div v-if="profile.dailyCalories" class="daily-calorie-result">
           <span>每日估算維持熱量</span><strong>{{ Number(profile.dailyCalories).toLocaleString() }} kcal</strong>
@@ -395,9 +409,11 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
       <p v-if="profileSuccess" class="profile-message success"><i class="bi bi-check-circle" aria-hidden="true"></i>{{ profileSuccess }}</p>
     </section>
 
-    <div class="page-head">
+    <DietTrends v-if="!recordsLoading && !recordsError" :records="records" />
+
+    <div class="page-head" id="diet-history">
       <div class="records-heading">
-        <h2>我的儲存紀錄</h2>
+        <h2>歷史飲食紀錄</h2>
         <div v-if="records.length" class="record-filters">
           <div ref="datePickerRef" class="date-filter custom-date-picker" :class="{ active: recordFilter === 'date' }">
             <span><i class="bi bi-calendar3" aria-hidden="true"></i>選擇日期</span>
@@ -421,6 +437,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
             </div>
           </div>
           <div class="quick-range-buttons" aria-label="快速選擇紀錄範圍">
+            <button type="button" :class="{ active: recordFilter === 'all' }" @click="recordFilter = 'all'">全部紀錄</button>
             <button type="button" :class="{ active: recordFilter === 'week' }" @click="recordFilter = 'week'">近一週</button>
             <button type="button" :class="{ active: recordFilter === 'month' }" @click="recordFilter = 'month'">近一個月</button>
           </div>
@@ -429,12 +446,14 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
       <button v-if="records.length" class="btn-clear-all" @click="clearAll">清除全部</button>
     </div>
 
-    <div v-if="!records.length" class="empty-state">
+    <p v-if="recordsLoading" role="status">正在讀取飲食紀錄…</p>
+    <p v-if="recordsError" role="alert" style="color: #b42318">{{ recordsError }} <button type="button" @click="loadRecords">重新讀取</button></p>
+    <div v-if="!recordsLoading && !recordsError && !records.length" class="empty-state">
       <p>尚無儲存紀錄</p>
       <span>回到首頁「儲存今日紀錄」即可產生第一筆資料。</span>
     </div>
 
-    <div v-else-if="!filteredRecords.length" class="empty-state">
+    <div v-else-if="!recordsLoading && !recordsError && !filteredRecords.length" class="empty-state">
       <p>{{ emptyRecordTitle }}</p>
       <span>請選擇其他日期查看已儲存的飲食內容。</span>
     </div>
@@ -445,7 +464,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
           <span class="record-date">{{ formatDate(rec.savedAt) }}</span>
           <span class="calorie-balance" :class="calorieBalance(rec).type">{{ calorieBalance(rec).text }}</span>
         </div>
-        <button class="btn-del" @click="deleteRecord(rec.id)">刪除</button>
+        <button class="btn-del" :disabled="deleting" @click="deleteRecord(rec.id)">刪除</button>
       </div>
 
       <div class="meals-grid">
@@ -474,6 +493,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
       </div>
     </div>
 
+    <WeightTracker />
+
     <Teleport to="body">
       <div v-if="showClearConfirm" class="confirm-overlay" role="presentation" @click.self="showClearConfirm = false" @keydown.esc="showClearConfirm = false">
         <section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="clear-dialog-title" aria-describedby="clear-dialog-description" tabindex="-1">
@@ -481,7 +502,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
           <p id="clear-dialog-description">清除後將無法復原<br />確定要刪除所有飲食紀錄嗎？</p>
           <div class="confirm-actions">
             <button type="button" class="btn-cancel" @click="showClearConfirm = false">取消</button>
-            <button type="button" class="btn-confirm" @click="confirmClearAll">確認清除</button>
+            <button type="button" class="btn-confirm" :disabled="deleting" @click="confirmClearAll">確認清除</button>
           </div>
         </section>
       </div>

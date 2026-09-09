@@ -27,15 +27,31 @@
 - Vue 3
 - Vue Router 4
 - Vite 5
+- PHP 8.2
+- MySQL / MariaDB
 - Bootstrap Icons
 - CSS
-- Local Storage
+- MySQL（會員資料與飲食紀錄）
 - GitHub Actions
 - GitHub Pages
 
 ## 本機執行
 
-建議使用 Node.js 20。
+建議使用 Node.js 20 與 XAMPP，並先從 XAMPP 控制台啟動 MySQL。
+
+第一次執行時：
+
+1. 在 `backend/config/local.php` 的 `password` 填入本機 MySQL `root` 密碼。
+2. 執行 `npm run db:setup` 建立資料庫與資料表。
+3. 開啟終端機啟動 PHP API：
+
+```bash
+npm run api
+```
+
+API 預設位於 `http://127.0.0.1:8000/api/`。這個終端機需保持執行。
+
+另開一個終端機安裝套件並啟動 Vue：
 
 ```bash
 npm install
@@ -64,14 +80,19 @@ npm run preview
 
 正式檔案會輸出至 `dist/`。
 
-## Demo 登入
+## 會員 API
 
-```text
-帳號：admin
-密碼：1234
-```
+目前已提供以下 PHP API：
 
-也可以在登入頁建立新的本機會員帳號。
+- `POST /api/register.php`
+- `POST /api/login.php`
+- `POST /api/logout.php`
+- `GET /api/me.php`
+- `GET/PATCH /api/profile.php`
+- `GET /api/foods.php`（公開食物清單，讀取 MySQL foods 表）
+- `GET/PUT/DELETE /api/records.php`（僅操作目前登入會員的飲食紀錄）
+
+密碼使用 PHP `password_hash()` 儲存，登入狀態使用 HttpOnly Session Cookie，修改資料時會驗證 CSRF Token。第一次使用請從註冊頁建立帳號。
 
 ## BMI 與每日熱量評估
 
@@ -108,16 +129,28 @@ BMI = 體重（kg）÷ 身高（m）²
 
 ## 資料儲存方式
 
-目前專案沒有後端伺服器或資料庫，以下資料皆儲存在瀏覽器的 Local Storage：
+目前後端串接範圍：
 
-- 註冊帳號與登入狀態
-- 會員資料
-- BMI 與每日熱量目標
-- 飲食清單與歷史紀錄
+- 註冊帳號、登入狀態、會員資料、BMI 與每日熱量目標儲存在 MySQL。
+- 已儲存的飲食清單與歷史紀錄存於 MySQL，依 Session 會員 ID 隔離；同一會員同一天再次儲存會更新整天內容。
+- 首頁會載入所選日期的已儲存清單；切換日期前請先儲存目前內容。
+- 舊版 Local Storage 紀錄保留在原瀏覽器，但不再讀取，也不自動匯入，因為無法確認所屬會員。
+- 營養師預約目前尚未送到後端。
 
-清除瀏覽器網站資料、更換瀏覽器或更換裝置後，資料不會自動同步。
+### 查看會員的食物與熱量
 
-> 本專案的本機帳號機制僅供前端展示，密碼未經後端雜湊與安全驗證，不可直接用於正式環境。正式上線時應改用後端 API、資料庫、密碼雜湊、身分驗證與權限控管。
+執行一次 `npm run db:setup` 即可新增 `meal_records` 與 `meal_items` 資料表，不會清除既有會員。
+在 phpMyAdmin 選擇 `calorie_db`，開啟 SQL 分頁，貼上 `backend/database/view-meals.sql` 的查詢，即可查看帳號、日期、餐別、食物、重量、熱量及營養素。這是資料庫管理者的查詢方式，目前未新增網站管理後台。
+
+API 不接受前端指定會員 ID，寫入與刪除皆驗證 CSRF Token。熱量與營養素由後端依 MySQL `foods` 表重新計算後保存。首頁也讀取同一份資料庫清單。
+
+### 飲食紀錄測試
+
+先啟動 MySQL 並執行 `npm run db:setup`，再執行 `node tests/records.mjs`。
+測試會啟動獨立 PHP API、建立兩個隨機測試帳號，驗證未登入拒絕、CSRF、輸入驗證、熱量計算、同日更新、跨帳號隔離與刪除，最後清除這兩個測試帳號及其紀錄。
+PHP 預設使用 `C:\xampp\php\php.exe`，可透過 `PHP_BINARY` 環境變數指定。
+
+手動驗證：登入 → 首頁加入白米飯 150 克 → 儲存 → 會員中心確認 195 kcal → 無痕視窗登入同帳號確認紀錄 → 換另一帳號確認紀錄不共用。
 
 ## 專案結構
 
@@ -128,12 +161,20 @@ src/
 ├─ data/            # 食物與地點資料
 ├─ router/          # Vue Router 路由設定
 ├─ views/           # 各頁面元件
-├─ auth.js          # 本機會員與個人熱量狀態
+├─ api.js           # PHP API 請求與 CSRF Token
+├─ auth.js          # Session 會員與個人熱量狀態
 ├─ App.vue
 └─ main.js
+
+backend/
+├─ api/             # PHP JSON API
+├─ config/          # PDO 與本機資料庫設定
+└─ database/        # MySQL schema
 ```
 
 ## GitHub Pages 部署
+
+> GitHub Pages 無法執行 PHP。目前線上站只適合靜態前端展示，會員功能需在本機 API 環境使用。正式上線時應改部署到支援 PHP/MySQL 的主機，或另外部署 API 並設定 `VITE_API_BASE_URL`。
 
 專案已設定 GitHub Actions。推送到 `main` 分支後，會自動執行：
 
@@ -152,3 +193,17 @@ git push
 
 可在 GitHub 專案的 `Actions` 頁面查看部署狀態。
 
+
+## 維護食物清單
+
+在 phpMyAdmin 選擇 `calorie_db` → `foods`，即可新增或修改食物。四項營養素均以 100 克為基準；飲料也以克計，不是毫升。網站重新整理後載入最新清單。
+
+初始化會匯入原有 81 筆及 160 筆食藥署資料，共 241 筆；其中最新增加優格 12 筆、早餐 16 筆、零食 16 筆與飲料 16 筆。重跑只補缺少名稱，不覆蓋既有資料。新增資料與授權、欄位對照請見 [FOOD-SOURCES.md](backend/database/FOOD-SOURCES.md)。
+
+食物名稱以一般常用的「優格」顯示；搜尋「發酵乳」或「優酪乳」也能找到相同資料。
+
+## 食物搜尋效能
+
+首頁使用 `GET /api/foods.php?q=關鍵字&category=分類&after=上一頁游標`，每頁最多 20 筆，回傳 `hasMore` 與 `nextCursor`，捲至清單底部時自動繼續查詢（載入中不重複請求，失敗時可點選重試）。`meta=1` 另回傳分類與三筆推薦食物。輸入搜尋延遲 250 毫秒送出，過時回應不更新畫面。
+
+儲存飲食時只依本次食物名稱查詢營養資料，使用既有名稱唯一索引。分類搜尋使用 `(category, id)` 索引；執行 `npm run db:setup` 可補上索引。關鍵字保留任意位置包含搜尋（LIKE），不保證一般索引可加速子字串比對；本次主要減少傳輸量與前端一次渲染的資料量，未做大規模負載測試。

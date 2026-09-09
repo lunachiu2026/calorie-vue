@@ -163,6 +163,7 @@ src/
 ├─ views/           # 各頁面元件
 ├─ api.js           # PHP API 請求與 CSRF Token
 ├─ auth.js          # Session 會員與個人熱量狀態
+├─ demo.js          # GitHub Pages 瀏覽器 Demo 資料層
 ├─ App.vue
 └─ main.js
 
@@ -174,7 +175,9 @@ backend/
 
 ## GitHub Pages 部署
 
-> GitHub Pages 無法執行 PHP。目前線上站只適合靜態前端展示，會員功能需在本機 API 環境使用。正式上線時應改部署到支援 PHP/MySQL 的主機，或另外部署 API 並設定 `VITE_API_BASE_URL`。
+GitHub Pages 無法執行 PHP，因此線上版提供獨立的「一鍵進入 Demo」展示帳號。Demo 內含 7 天飲食紀錄、5 筆體重趨勢、會員資料及完整 241 筆食物；所有操作只保存在訪客瀏覽器的 `localStorage`，不會寫入正式 MySQL。登入頁的「重新載入範例資料」可恢復預設內容。
+
+一般帳號的註冊、登入及跨裝置同步仍需 PHP/MySQL。正式上線時應部署到支援 PHP/MySQL 的主機，或另外部署 API 並設定 `VITE_API_BASE_URL`。
 
 專案已設定 GitHub Actions。推送到 `main` 分支後，會自動執行：
 

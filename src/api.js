@@ -1,4 +1,9 @@
+import { canHandleDemoRequest, demoApiRequest } from './demo.js'
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+export const isStaticPreview = typeof window !== 'undefined'
+  && window.location.hostname.endsWith('github.io')
+  && !import.meta.env.VITE_API_BASE_URL
 
 let csrfToken = ''
 
@@ -15,6 +20,8 @@ export const clearApiSession = () => {
 }
 
 export async function apiRequest(path, options = {}) {
+  if (canHandleDemoRequest(path, isStaticPreview)) return demoApiRequest(path, options)
+  if (isStaticPreview) throw new ApiError('GitHub 展示版請使用「一鍵進入 Demo」體驗完整功能')
   const method = (options.method || 'GET').toUpperCase()
   const headers = { Accept: 'application/json', ...options.headers }
   const requestOptions = { ...options, method, headers, credentials: 'include' }

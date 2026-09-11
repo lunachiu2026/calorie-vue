@@ -109,13 +109,16 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="slider-dots">
-      <div
+      <button
+        type="button"
+        :aria-label="`第 ${d + 1} 組運動場所`"
+        :aria-pressed="d === currentIndex"
         v-for="d in dots"
         :key="d"
         class="dot"
         :class="{ active: d === currentIndex }"
         @click="goTo(d)"
-      ></div>
+      ></button>
     </div>
   </main>
 </template>
@@ -124,5 +127,22 @@ onBeforeUnmount(() => {
 .nav-arrow:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+@media (min-width: 641px) and (max-width: 1300px) {
+  .nav-arrow.prev { left: 0; }
+  .nav-arrow.next { right: 0; }
+  .nav-arrow { background: #fff; border-radius: 50%; box-shadow: 0 2px 12px #23442c26; }
+}
+.dot { border: 0; position: relative; }
+.dot::before { content: ''; position: absolute; inset: -16px -8px; }
+.slider-dots { gap: 24px; padding: 16px 0; }
+@media (max-width: 640px) {
+  .slider-section { margin-top: 26px; }
+  .section-header { margin-bottom: 20px; }
+  .card-slide { height: auto; min-height: 440px; }
+  .card-img-box { height: 210px; flex-shrink: 0; }
+  .card-content { height: auto; flex: 1; gap: 16px; }
+  .card-desc { font-size: 14px; -webkit-line-clamp: unset; line-clamp: unset; }
+  .btn-action { min-height: 44px; }
 }
 </style>

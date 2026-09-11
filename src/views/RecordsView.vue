@@ -345,7 +345,10 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
 
 <template>
   <main class="records-page">
+    <h1 class="member-title">我的健康紀錄</h1>
     <section class="profile-card">
+      <details class="personal-details">
+        <summary>會員資料與編輯</summary>
       <div class="profile-card-head">
         <div>
           <h3>會員資料</h3>
@@ -372,6 +375,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
         </div>
       </form>
 
+      </details>
       <div v-if="!editingProfile" class="bmi-section">
         <div v-if="profile.bmi" class="bmi-summary">
           <div><span>上次評估 BMI</span><strong>{{ profile.bmi }}</strong></div>
@@ -437,9 +441,9 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
             </div>
           </div>
           <div class="quick-range-buttons" aria-label="快速選擇紀錄範圍">
-            <button type="button" :class="{ active: recordFilter === 'all' }" @click="recordFilter = 'all'">全部紀錄</button>
-            <button type="button" :class="{ active: recordFilter === 'week' }" @click="recordFilter = 'week'">近一週</button>
-            <button type="button" :class="{ active: recordFilter === 'month' }" @click="recordFilter = 'month'">近一個月</button>
+            <button type="button" :class="{ active: recordFilter === 'all' }" @click="recordFilter = 'all'">全部</button>
+            <button type="button" :class="{ active: recordFilter === 'week' }" @click="recordFilter = 'week'">近 7 天</button>
+            <button type="button" :class="{ active: recordFilter === 'month' }" @click="recordFilter = 'month'">近 30 天</button>
           </div>
         </div>
       </div>
@@ -512,7 +516,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
 
 <style scoped>
 .records-page {
-  max-width: 760px;
+  max-width: 1100px;
   margin: 32px auto;
   padding: 0 16px;
 }
@@ -844,5 +848,16 @@ onBeforeUnmount(() => document.removeEventListener('click', closeCalendarOutside
   .meals-grid {
     grid-template-columns: 1fr;
   }
+}
+.member-title { margin: 0 0 20px; font-size: 26px; color: #163a2b; }
+.personal-details > summary { min-height: 44px; padding: 10px 0; cursor: pointer; font-weight: 700; color: #365d46; }
+.personal-details[open] > summary { margin-bottom: 16px; }
+.quick-range-buttons button { white-space: nowrap; min-height: 44px; }
+.profile-grid span { color: #617167; font-size: 13px; }
+@media (max-width: 600px) {
+  .records-heading { width: 100%; }
+  .profile-card { padding: 18px; }
+  .quick-range-buttons { width: 100%; }
+  .quick-range-buttons button { padding: 0 10px; }
 }
 </style>

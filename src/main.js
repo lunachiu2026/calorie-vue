@@ -7,6 +7,7 @@ import './assets/sport.css'
 import './assets/goodhealth.css'
 import './assets/Nutritionist.css'
 import 'bootstrap-icons/font/bootstrap-icons.css'
+import './assets/refinements.css'
 
 const bootstrap = async () => {
   const { initializeAuth } = useAuth()

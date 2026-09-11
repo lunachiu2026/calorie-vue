@@ -69,6 +69,8 @@ const handleFoodScroll = event => {
 const searchQuery = ref('')
 const selectedFoodName = ref('')
 const activeCategory = ref('全部')
+const showAllCategories = ref(false)
+const visibleCategories = computed(() => showAllCategories.value ? foodCategories.value : foodCategories.value.filter((category, index) => index < 4 || category === activeCategory.value))
 const inputWeight = ref(100)
 const activeMeal = ref('午餐')
 const dropdownOpen = ref(false)
@@ -388,11 +390,12 @@ onBeforeUnmount(() => {
             </div>
             <div class="category-filter" aria-label="食物分類">
               <span>快速分類</span>
-              <button v-for="category in foodCategories" :key="category" type="button"
+              <button v-for="category in visibleCategories" :key="category" type="button"
                 :class="{ active: activeCategory === category }" :aria-pressed="activeCategory === category"
                 @click="selectCategory(category)">
                 <i class="bi" :class="categoryIcons[category] || 'bi-grid-fill'" aria-hidden="true"></i>{{ category }}
               </button>
+              <button v-if="foodCategories.length > 4" type="button" :aria-expanded="showAllCategories" @click="showAllCategories = !showAllCategories">{{ showAllCategories ? '收合分類' : '更多分類' }}</button>
             </div>
             <div class="preview-row">
               <span>預估熱量：<strong>{{ calculatedPreview.calories }} kcal</strong></span>
@@ -581,7 +584,7 @@ onBeforeUnmount(() => {
 .home-page { min-height: 100vh; color: #202824; background: #f9fbfa; }
 .hero-section {
   position: relative; overflow: visible; padding: 60px 5% 56px;
-  background-image: url('../assets/hero-section.png');
+  background-image: linear-gradient(90deg, rgba(242,248,239,.95), rgba(242,248,239,.25)), url('../assets/hero-section.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -734,6 +737,10 @@ onBeforeUnmount(() => {
 .clear-confirm { color: #fff; background: #AAC0AF; border: 1px solid #AAC0AF; }
 .clear-cancel:hover { background: #e4ebe6; }
 .clear-confirm:hover { background: #FAAC9A; border-color: #FAAC9A; }
+@media (min-width: 761px) and (max-width: 1300px) {
+  .calculator-row { grid-template-columns: 1fr 1fr; }
+  .food-search, .calculate-button { grid-column: 1/-1; }
+}
 @media (max-width: 1050px) {
   .hero-content { grid-template-columns: 1fr; }
   .nutrition-card { display: grid; grid-template-columns: 1fr 180px 1.4fr; gap: 22px; align-items: center; }
@@ -755,9 +762,23 @@ onBeforeUnmount(() => {
   .meal-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 460px) {
-  .calculator-row { grid-template-columns: 1fr; }
-  .food-search, .calculate-button { grid-column: auto; }
+  .calculator-row { grid-template-columns: 1fr 1fr; }
+  .food-search, .calculate-button { grid-column: 1/-1; }
   .preview-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .dashboard-section { width: 92%; padding-top: 24px; }
+}
+@media (max-width: 760px) {
+  .hero-section { padding: 24px 4% 28px; }
+  .hero-copy h1 { margin-top: 16px; font-size: 30px; letter-spacing: -1px; }
+  .hero-copy > p { font-size: 15px; margin-bottom: 18px; }
+  .calculator-card, .nutrition-card { padding: 20px; }
+  .category-filter { gap: 6px; }
+  .category-filter > span { width: 100%; }
+  .category-filter button { min-height: 40px; }
+  .macro-stats { grid-template-columns: 1fr; gap: 14px; }
+  .macro-stats > div { grid-template-columns: 1fr auto; text-align: left; }
+  .macro-stats strong { white-space: nowrap; }
+  .macro-stats i { grid-column: 1/-1; height: 6px; }
+  .macro-stats small { grid-column: 1/-1; margin: 0; }
 }
 </style>

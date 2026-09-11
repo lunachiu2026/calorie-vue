@@ -1,48 +1,7 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import img1 from './teacher/11.jpg'
-import img2 from './teacher/22.jpg'
-import img3 from './teacher/33.jpg'
-import img4 from './teacher/44.jpg'
+import { nutritionists } from '../data/nutritionists.js'
 
-const nutritionists = [
-  {
-    name: '李志宏',
-    title: '營養師',
-    price: '每堂 NT$ 1,500',
-    specialty: '專長：減重體態雕塑',
-    rating: '⭐ 4.9',
-    reviews: '(211 則真實學員好評)',
-    image: img1
-  },
-  {
-    name: '陳安妤',
-    title: '臨床營養師',
-    price: '每堂 NT$ 1,600',
-    specialty: '專長：三高飲食調理',
-    rating: '⭐ 4.8',
-    reviews: '(206 則真實學員好評)',
-    image: img2
-  },
-  {
-    name: '陳家明',
-    title: '營養師',
-    price: '每堂 NT$ 1,500',
-    specialty: '專長：運動營養學',
-    rating: '⭐ 4.9',
-    reviews: '(208 則真實學員好評)',
-    image: img3
-  },
-  {
-    name: '陳姿妤',
-    title: '臨床營養師',
-    price: '每堂 NT$ 1,600',
-    specialty: '專長：孕期母嬰營養',
-    rating: '⭐ 4.8',
-    reviews: '(228 則真實學員好評)',
-    image: img4
-  }
-]
 </script>
 
 <template>
@@ -51,6 +10,7 @@ const nutritionists = [
       <h1 class="section-title">專業營養師一對一諮詢</h1>
       <p class="subtitle">客製化飲食計畫，由權威臨床與運動營養師線上線下指導</p>
 
+      <p class="feature-notice">營養師資料為展示內容；學經歷與服務資訊待本人確認，預約為意向登記。</p>
       <div class="teacher-grid">
         <article v-for="nutritionist in nutritionists" :key="nutritionist.name" class="card">
           <img
@@ -80,10 +40,10 @@ const nutritionists = [
             </div>
 
             <RouterLink
-              :to="{ name: 'teacher-booking', query: { teacher: nutritionist.name } }"
+              :to="{ name: 'teacher-detail', params: { id: nutritionist.id } }"
               class="submit-btn"
             >
-              確認並線上預約
+              查看介紹
             </RouterLink>
           </div>
         </article>
@@ -155,13 +115,14 @@ const nutritionists = [
 
 @media (max-width: 560px) {
   .teacher-page .card {
-    align-items: center;
-    flex-direction: column;
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 14px; padding: 18px;
   }
 
   .teacher-page .teacher-avatar {
-    width: 100%;
-    height: 260px;
+    flex: 0 0 76px; width: 76px;
+    height: 96px;
   }
 
   .teacher-page .card-header {
@@ -169,5 +130,16 @@ const nutritionists = [
     flex-direction: column;
     gap: 8px;
   }
+}
+.teacher-page .card-info { min-width: 0; }
+.teacher-page .price, .teacher-page .tag { color: #365d46; }
+.teacher-page .reviews { color: #657169; }
+@media (max-width: 560px) {
+  .teacher-page { padding-top: 26px; }
+  .teacher-page .section-title { font-size: 25px; }
+  .teacher-page .card-header h2 { font-size: 18px; }
+  .teacher-page .title-tag { display: block; margin-top: 4px; }
+  .teacher-page .submit-btn { padding: 12px 8px; font-size: 15px; }
+  .teacher-page .tags { flex-wrap: wrap; }
 }
 </style>

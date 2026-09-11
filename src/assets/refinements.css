@@ -1,0 +1,21 @@
+/* Shared interaction colors; sage and peach remain surface accents. */
+:root { --action: #3e6b50; --action-hover: #30563f; }
+#app :is(.auth-button, .logout-button, .calculate-button, .save-button, .submit-btn, .btn-profile-save, .food-card-footer a) {
+  background: var(--action); color: #fff;
+}
+#app :is(.auth-button, .logout-button, .calculate-button, .save-button, .submit-btn, .btn-profile-save, .food-card-footer a):hover:not(:disabled) {
+  background: var(--action-hover); color: #fff;
+}
+#app .nav-links a.active, #app .nav-links a:hover { color: #8a4d3d; }
+#app :is(button, a, input, select, summary):focus-visible { outline: 3px solid #527d60; outline-offset: 3px; }
+@media (max-width: 1100px) {
+  #app .navbar { gap: 12px; height: 66px; flex-wrap: nowrap; }
+  #app .nav-links { overflow-y: auto; overflow-x: hidden; }
+  #app .hamburger { flex-shrink: 0; width: 44px; height: 44px; }
+}
+@media (max-width: 760px) {
+  #app input:not([type=checkbox]):not([type=radio]), #app select { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}

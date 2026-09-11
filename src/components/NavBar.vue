@@ -20,13 +20,13 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <header class="navbar">
+  <header class="navbar" @keydown.esc="closeMenu">
     <RouterLink class="brand" to="/" @click="closeMenu">
       <img src="../assets/logo.png" alt="卡路里 calorie" />
     </RouterLink>
 
     <button class="hamburger" :class="{ active: menuOpen }" type="button"
-      :aria-expanded="menuOpen" aria-label="開啟選單" @click="menuOpen = !menuOpen">
+      :aria-expanded="menuOpen" :aria-label="menuOpen ? '關閉選單' : '開啟選單'" @click="menuOpen = !menuOpen">
       <span></span><span></span><span></span>
     </button>
 
@@ -51,14 +51,14 @@ const handleLogout = async () => {
 <style scoped>
 .navbar {
   position: sticky; z-index: 50; top: 0; display: grid;
-  grid-template-columns: 220px 1fr 360px; align-items: center;
+  grid-template-columns: 175px minmax(0,1fr) auto; align-items: center;
   min-height: 78px; padding: 0 max(5%, calc((100% - 1280px) / 2));
   background: rgba(255,255,255,.96); border-bottom: 1px solid #e7ece9;
   box-shadow: 0 3px 14px rgba(31,55,40,.03); backdrop-filter: blur(10px);
 }
 .brand { display: inline-flex; justify-self: start; }
 .brand img { display: block; width: 171px; height: auto; }
-.nav-links { display: flex; align-items: stretch; justify-content: center; gap: 34px; min-height: 78px; }
+.nav-links { display: flex; align-items: stretch; justify-content: center; gap: 12px; min-height: 78px; }
 .nav-links a { position: relative; display: grid; color: #657169; text-decoration: none; font-weight: 600; place-items: center; white-space: nowrap; }
 .nav-links a::after { position: absolute; right: 28%; bottom: 0; left: 28%; height: 3px; content: ''; background: transparent; border-radius: 3px 3px 0 0; }
 .nav-links a:hover, .nav-links a.active { color: #FAAC9A; background: transparent !important; box-shadow: none !important; }
@@ -82,7 +82,7 @@ const handleLogout = async () => {
   .user-greeting { max-width: 90px; font-size: 12px; }
   .daily-goal { font-size: 12px; }
 }
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   .navbar { display: flex; justify-content: space-between; min-height: 66px; padding: 0 18px; }
   .hamburger { display: block; order: 3; }
   .nav-actions { margin-left: auto; margin-right: 8px; }
@@ -90,8 +90,8 @@ const handleLogout = async () => {
   .daily-goal { display: none; }
   .auth-default { display: none; }
   .auth-mobile { display: inline; }
-  .nav-links { position: fixed; top: 66px; right: 0; display: flex; width: min(290px,82vw); height: calc(100vh - 66px); padding: 24px; align-items: stretch; flex-direction: column; justify-content: flex-start; gap: 4px; background: #fff; box-shadow: -14px 18px 35px rgba(32,56,41,.12); transform: translateX(105%); transition: transform .25s ease; }
-  .nav-links.open { transform: translateX(0); }
+  .nav-links { position: fixed; top: 66px; right: 0; display: flex; width: min(290px,82vw); height: calc(100vh - 66px); padding: 24px; align-items: stretch; flex-direction: column; justify-content: flex-start; gap: 4px; background: #fff; box-shadow: -14px 18px 35px rgba(32,56,41,.12); visibility: hidden; pointer-events: none; opacity: 0; transition: opacity .2s ease; }
+  .nav-links.open { visibility: visible; pointer-events: auto; opacity: 1; }
   .nav-links a { display: flex; min-height: 49px; padding: 0 12px; border-radius: 9px; }
   .nav-links a::after { display: none; }
   .nav-links a.active { color: #FAAC9A; background: transparent !important; }

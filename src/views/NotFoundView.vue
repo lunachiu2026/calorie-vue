@@ -1,0 +1,1 @@
+<template><main class="feature-page feature-empty"><i class="bi bi-signpost-split" aria-hidden="true"></i><p class="feature-eyebrow">404 · 找不到頁面</p><h1>這個頁面不在這裡</h1><p>網址可能有誤，或頁面已移動。回到首頁繼續記錄今天的飲食吧。</p><RouterLink to="/" class="feature-button">返回首頁</RouterLink><RouterLink to="/teacher" class="feature-link">瀏覽營養師</RouterLink></main></template>
